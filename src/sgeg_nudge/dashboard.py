@@ -19,10 +19,11 @@ import json
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import secrets as _secrets
+
+import jwt as _jwt
+from fastapi import APIRouter, Cookie, Depends, Form, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from .config import settings
 from .db import (
@@ -35,21 +36,108 @@ from .db import (
 )
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
-_security = HTTPBasic()
+
+_COOKIE = "sgeg_admin"
+_ALGO   = "HS256"
+_TTL_H  = 8
 
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
+# ── Cookie-based auth ─────────────────────────────────────────────────────────
 
-def _require_admin(creds: HTTPBasicCredentials = Depends(_security)):
-    ok_user = _secrets.compare_digest(creds.username, settings.admin_user)
-    ok_pass = _secrets.compare_digest(creds.password, settings.admin_password)
-    if not (ok_user and ok_pass):
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect credentials",
-            headers={"WWW-Authenticate": 'Basic realm="AI Buddy Admin"'},
-        )
-    return creds.username
+def _make_token() -> str:
+    return _jwt.encode(
+        {"sub": settings.admin_user, "exp": datetime.now(timezone.utc) + timedelta(hours=_TTL_H)},
+        settings.lti_secret_key, algorithm=_ALGO,
+    )
+
+def _require_admin(request: Request, sgeg_admin: str | None = Cookie(default=None)) -> str:
+    try:
+        payload = _jwt.decode(sgeg_admin or "", settings.lti_secret_key, algorithms=[_ALGO])
+        return payload["sub"]
+    except Exception:
+        from fastapi.responses import RedirectResponse as _RR
+        raise HTTPException(status_code=401, detail="login_required")
+
+
+# ── Login page ────────────────────────────────────────────────────────────────
+
+@router.get("/login", response_class=HTMLResponse)
+def login_page(error: str = ""):
+    err_html = f'<p class="error">{error}</p>' if error else ""
+    return HTMLResponse(f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SGEG Education Coach — Login</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:#F0F4F7;min-height:100vh;display:flex;align-items:center;justify-content:center}}
+.card{{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(10,34,64,.12);
+  padding:40px 36px;width:100%;max-width:380px}}
+.logo{{display:flex;align-items:center;gap:12px;margin-bottom:28px}}
+.logo svg{{width:44px;height:44px;flex-shrink:0}}
+.logo-text h1{{font-size:1rem;font-weight:800;color:#0A2240;line-height:1.2}}
+.logo-text p{{font-size:.75rem;color:#6B7280;margin-top:2px}}
+label{{display:block;font-size:.82rem;font-weight:600;color:#0A2240;margin-bottom:5px}}
+input{{width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:10px 12px;
+  font-size:.9rem;outline:none;transition:border-color .15s;margin-bottom:14px}}
+input:focus{{border-color:#007A87}}
+button{{width:100%;padding:11px;background:#0A2240;color:#fff;border:none;
+  border-radius:8px;font-size:.9rem;font-weight:700;cursor:pointer;margin-top:4px;
+  transition:background .15s}}
+button:hover{{background:#1a367e}}
+.error{{color:#B91C1C;font-size:.82rem;background:#FEF2F2;border:1px solid #FECACA;
+  border-radius:6px;padding:8px 12px;margin-bottom:14px}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="22" cy="22" r="21" fill="#0A2240"/>
+      <rect x="8" y="10" width="28" height="6" rx="3" fill="#007A87"/>
+      <circle cx="16" cy="24" r="3" fill="#F59E0B"/>
+      <circle cx="28" cy="24" r="3" fill="#F59E0B"/>
+      <path d="M14 32 Q22 37 30 32" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    </svg>
+    <div class="logo-text">
+      <h1>Education Coach</h1>
+      <p>SGEG Admin Dashboard</p>
+    </div>
+  </div>
+  {err_html}
+  <form method="post" action="/dashboard/login">
+    <label for="username">Username</label>
+    <input id="username" name="username" type="text" autocomplete="username" required/>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required/>
+    <button type="submit">Sign in</button>
+  </form>
+</div>
+</body>
+</html>""")
+
+
+@router.post("/login")
+def login_submit(username: str = Form(...), password: str = Form(...)):
+    ok = (
+        _secrets.compare_digest(username, settings.admin_user) and
+        _secrets.compare_digest(password, settings.admin_password)
+    )
+    if not ok:
+        return RedirectResponse("/dashboard/login?error=Incorrect+username+or+password", status_code=303)
+    resp = RedirectResponse("/dashboard/", status_code=303)
+    resp.set_cookie(_COOKIE, _make_token(), httponly=True, samesite="lax", max_age=_TTL_H * 3600)
+    return resp
+
+
+@router.get("/logout")
+def logout():
+    resp = RedirectResponse("/dashboard/login", status_code=303)
+    resp.delete_cookie(_COOKIE)
+    return resp
 
 
 # ── Analytics API ─────────────────────────────────────────────────────────────
@@ -496,7 +584,11 @@ def student_detail(user_id: str, _: str = Depends(_require_admin)):
 
 @router.get("", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
-def dashboard_home(_: str = Depends(_require_admin)):
+def dashboard_home(request: Request, sgeg_admin: str | None = Cookie(default=None)):
+    try:
+        _require_admin(request, sgeg_admin)
+    except HTTPException:
+        return RedirectResponse("/dashboard/login", status_code=303)
     return HTMLResponse(_DASHBOARD_HTML)
 
 
@@ -505,13 +597,13 @@ _DASHBOARD_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>AI Buddy — Admin Dashboard</title>
+<title>SGEG Education Coach — Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --brand:#4F46E5;--brand-pale:#EEF2FF;--accent:#7C3AED;
-  --surface:#fff;--bg:#F0F4FF;--text:#1E1B4B;--text2:#6B7280;
+  --brand:#0A2240;--brand-pale:#E8F4F6;--accent:#007A87;
+  --surface:#fff;--bg:#F0F4F7;--text:#0A2240;--text2:#6B7280;
   --border:#E5E7EB;--radius:12px;
   --green:#059669;--amber:#D97706;--red:#DC2626;
 }
@@ -578,8 +670,11 @@ tr:hover td{background:#FAFBFF}
 <body>
 
 <div class="topbar">
-  <h1>🤖 AI Buddy — Admin Dashboard</h1>
-  <span id="last-updated">Loading…</span>
+  <h1>SGEG Education Coach — Dashboard</h1>
+  <div style="display:flex;align-items:center;gap:16px">
+    <span id="last-updated" style="font-size:.78rem;opacity:.8">Loading…</span>
+    <a href="/dashboard/logout" style="font-size:.78rem;color:rgba(255,255,255,.8);text-decoration:none;border:1px solid rgba(255,255,255,.3);padding:4px 12px;border-radius:99px;transition:background .13s" onmouseover="this.style.background='rgba(255,255,255,.15)'" onmouseout="this.style.background=''">Sign out</a>
+  </div>
 </div>
 
 <div class="tabs">
