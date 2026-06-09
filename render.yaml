@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: sgeg-education-coach
+    runtime: python
+    region: frankfurt   # closest to South Africa on Render free tier
+    plan: starter       # $7/mo — no sleep, persistent disk available
+    buildCommand: pip install uv && uv sync --frozen
+    startCommand: uv run uvicorn sgeg_nudge.main:create_app --factory --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    disk:
+      name: sgeg-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: CANVAS_BASE_URL
+        sync: false
+      - key: CANVAS_API_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ADMIN_USER
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: LTI_CLIENT_ID
+        sync: false
+      - key: LTI_DEPLOYMENT_ID
+        sync: false
+      - key: LTI_SECRET_KEY
+        sync: false
+      - key: LTI_DEV_MODE
+        value: "false"
+      - key: APP_URL
+        value: "https://savinggraceeducationaicoach.co.za"
+      - key: DB_PATH
+        value: "/data/sgeg.db"

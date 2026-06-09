@@ -1,0 +1,56 @@
+{
+  "title": "Education Coach",
+  "description": "Education Coach — personalised learning assistant for SGEG students (Grade R–12).",
+  "target_link_uri": "https://savinggraceeducationaicoach.co.za/lti/launch",
+  "oidc_initiation_url": "https://savinggraceeducationaicoach.co.za/lti/login",
+  "public_jwk_url": "https://savinggraceeducationaicoach.co.za/lti/jwks",
+  "redirect_uris": "https://savinggraceeducationaicoach.co.za/lti/launch",
+
+  "scopes": [
+    "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
+    "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem",
+    "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly",
+    "https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly",
+    "https://purl.imsglobal.org/spec/lti-ags/scope/score"
+  ],
+
+  "extensions": [
+    {
+      "platform": "canvas.instructure.com",
+      "privacy_level": "public",
+      "settings": {
+        "platform": "canvas.instructure.com",
+        "text": "Education Coach",
+        "icon_url": "https://savinggraceeducationaicoach.co.za/static/icon.svg",
+        "selection_width": 400,
+        "selection_height": 560,
+        "placements": [
+          {
+            "placement": "course_navigation",
+            "message_type": "LtiResourceLinkRequest",
+            "target_link_uri": "https://savinggraceeducationaicoach.co.za/lti/launch",
+            "text": "Education Coach",
+            "icon_url": "https://savinggraceeducationaicoach.co.za/static/icon.svg",
+            "default": "disabled",
+            "visibility": "members",
+            "launch_width": 400,
+            "launch_height": 560
+          }
+        ]
+      }
+    }
+  ],
+
+  "custom_fields": {
+    "canvas_user_id": "$Canvas.user.id",
+    "canvas_course_id": "$Canvas.course.id",
+    "canvas_user_login": "$Canvas.user.loginId",
+    "canvas_enrollment_state": "$Canvas.enrollment.enrollmentState",
+    "canvas_account_id": "$Canvas.account.id",
+    "canvas_course_name": "$Canvas.course.name",
+    "canvas_user_name": "$Person.name.full",
+    "canvas_user_email": "$Person.email.primary",
+    "canvas_sis_user_id": "$Canvas.user.sisSourceId",
+    "canvas_course_sis_id": "$Canvas.course.sisSourceId"
+  }
+}

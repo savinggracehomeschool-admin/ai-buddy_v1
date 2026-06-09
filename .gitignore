@@ -1,0 +1,37 @@
+# Secrets
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# LTI RSA keys — auto-generated on first boot, never commit
+lti_private_key.pem
+lti_public_key.pem
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Build artefacts
+dist/
+build/
+*.egg-info/
+
+# Logs
+logs/
+*.log

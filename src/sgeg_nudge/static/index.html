@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SGEG Education Coach</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="buddy-brand">
+        <div class="buddy-avatar" aria-hidden="true">
+          <!-- Coach face: navy circle · teal cap bar (SGEG E-shape) · orange eyes (SGEG dot) · white smile -->
+          <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="22" cy="22" r="21" fill="#0A2240"/>
+            <rect x="8" y="10" width="28" height="6" rx="3" fill="#007A87"/>
+            <circle cx="16" cy="24" r="3" fill="#F59E0B"/>
+            <circle cx="28" cy="24" r="3" fill="#F59E0B"/>
+            <path d="M14 32 Q22 37 30 32" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="buddy-name">Education Coach</h1>
+          <p class="buddy-sub" id="course-label">Loading…</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="grade-badge" id="grade-badge"></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Chat window -->
+  <main class="chat-window" id="chat-window" role="log" aria-live="polite" aria-label="Chat messages">
+    <div class="chat-intro" id="chat-intro">
+      <div class="intro-avatar" aria-hidden="true">
+        <!-- Large intro avatar: pale teal bg · teal cap bar · navy eyes w/ orange pupils · navy smile -->
+        <svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="22" cy="22" r="21" fill="#E8F4F6"/>
+          <rect x="8" y="10" width="28" height="6" rx="3" fill="#007A87"/>
+          <circle cx="16" cy="24" r="3" fill="#0A2240"/>
+          <circle cx="28" cy="24" r="3" fill="#0A2240"/>
+          <circle cx="16.9" cy="23.1" r="1.1" fill="#F59E0B"/>
+          <circle cx="28.9" cy="23.1" r="1.1" fill="#F59E0B"/>
+          <path d="M14 32 Q22 37 30 32" stroke="#0A2240" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <p class="intro-greeting" id="intro-greeting">Hi there! I'm your Education Coach</p>
+      <p class="intro-text">I can check your grades, remind you about assignments, and help you find your lessons and videos in Canvas.</p>
+    </div>
+  </main>
+
+  <!-- Quick actions bar -->
+  <div class="quick-actions" id="quick-actions">
+    <button class="chip" data-msg="What are my grades?">📊 My grades</button>
+    <button class="chip" data-msg="What assignments do I have coming up?">📝 My assignments</button>
+    <button class="chip" data-msg="Show me the course modules and lessons.">📁 Course content</button>
+    <button class="chip chip-escalate" id="btn-escalate">🙋 Talk to a teacher</button>
+  </div>
+
+  <!-- Input bar -->
+  <div class="input-bar">
+    <textarea
+      id="message-input"
+      class="message-input"
+      placeholder="Ask me anything about your course…"
+      rows="1"
+      aria-label="Your message"
+      maxlength="2000"
+    ></textarea>
+    <button class="send-btn" id="send-btn" aria-label="Send message" disabled>
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M22 2L11 13" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Escalation modal -->
+  <div class="modal-overlay" id="escalate-modal" role="dialog" aria-modal="true" aria-label="Talk to a teacher" hidden>
+    <div class="modal">
+      <h2>Talk to a teacher</h2>
+      <p>Let me know what you need help with and your teacher will follow up with you.</p>
+      <textarea id="escalate-msg" class="escalate-textarea" placeholder="What do you need help with? (optional)" rows="3" maxlength="500"></textarea>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="modal-cancel">Cancel</button>
+        <button class="btn-primary" id="modal-confirm">Send to teacher</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

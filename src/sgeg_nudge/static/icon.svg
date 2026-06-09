@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Transparent background — Canvas sidebar provides the blue -->
+  <!-- Teal cap bar -->
+  <rect x="10" y="10" width="44" height="9" rx="4.5" fill="white"/>
+  <!-- Orange eyes -->
+  <circle cx="22" cy="31" r="5" fill="white"/>
+  <circle cx="42" cy="31" r="5" fill="white"/>
+  <!-- Smile -->
+  <path d="M18 46 Q32 55 46 46" stroke="white" stroke-width="4" fill="none" stroke-linecap="round"/>
+</svg>

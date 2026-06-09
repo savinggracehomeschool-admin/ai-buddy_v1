@@ -1,0 +1,211 @@
+/*
+ * SGEG Education Coach — Canvas Theme CSS
+ * Append this to your existing Canvas theme CSS.
+ * These rules are scoped to #sgeg-coach-* so they won't affect any other Canvas UI.
+ */
+
+/* Floating badge button */
+#sgeg-coach-badge {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: #0A2240;
+  box-shadow: 0 4px 16px rgba(10, 34, 64, 0.40);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.18s, box-shadow 0.18s;
+  outline: none;
+}
+
+#sgeg-coach-badge:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(10, 34, 64, 0.50);
+}
+
+#sgeg-coach-badge:focus-visible {
+  box-shadow: 0 0 0 3px #007A87, 0 4px 16px rgba(10, 34, 64, 0.40);
+}
+
+/* Side panel */
+#sgeg-coach-panel {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  z-index: 9998;
+  width: 380px;
+  height: 100vh;
+  max-height: 100vh;
+  background: #ffffff;
+  box-shadow: -4px 0 24px rgba(10, 34, 64, 0.18);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  border-left: 1px solid #B8D8DC;
+}
+
+#sgeg-coach-panel.open {
+  transform: translateX(0);
+}
+
+/* Panel header */
+#sgeg-coach-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #0A2240;
+  flex-shrink: 0;
+}
+
+#sgeg-coach-panel-head svg {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+}
+
+#sgeg-coach-panel-title {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 15px;
+  flex: 1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+#sgeg-coach-close {
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  color: #ffffff;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.13s;
+}
+
+#sgeg-coach-close:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+/* Chat iframe */
+#sgeg-coach-frame {
+  flex: 1;
+  border: none;
+  width: 100%;
+  background: #F0F4F7;
+}
+
+/* Loading state */
+#sgeg-coach-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px;
+  background: #F0F4F7;
+}
+
+#sgeg-coach-loading svg {
+  width: 56px;
+  height: 56px;
+  animation: sgeg-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes sgeg-pulse {
+  0%,  100% { opacity: 1;   transform: scale(1); }
+  50%        { opacity: 0.7; transform: scale(0.95); }
+}
+
+#sgeg-coach-loading p {
+  color: #0A2240;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Error state */
+#sgeg-coach-error {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  background: #F0F4F7;
+  text-align: center;
+}
+
+#sgeg-coach-error p {
+  color: #6B7280;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+#sgeg-coach-error button {
+  margin-top: 4px;
+  padding: 8px 20px;
+  background: #0A2240;
+  color: #ffffff;
+  border: none;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+#sgeg-coach-error button:hover {
+  background: #1a367e;
+}
+
+/* Mobile backdrop */
+#sgeg-coach-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9997;
+  background: rgba(10, 34, 64, 0.35);
+}
+
+@media (max-width: 440px) {
+  #sgeg-coach-panel {
+    width: 100vw;
+  }
+
+  #sgeg-coach-backdrop {
+    display: block;
+    opacity: 0;
+    transition: opacity 0.28s;
+    pointer-events: none;
+  }
+
+  #sgeg-coach-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  #sgeg-coach-badge {
+    bottom: 16px;
+    right: 16px;
+    width: 48px;
+    height: 48px;
+  }
+}
