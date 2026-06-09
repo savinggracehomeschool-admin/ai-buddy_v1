@@ -15,7 +15,8 @@ import html
 import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, status
+import jwt as _jwt
+from fastapi import APIRouter, Cookie, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy import select
@@ -36,21 +37,21 @@ from sgeg_nudge.db import (
 from sgeg_nudge.tickets import close_ticket
 
 router = APIRouter()
-_security = HTTPBasic()
+
+_COOKIE = "sgeg_admin"
+_ALGO   = "HS256"
 
 
 def _verify_admin(
-    credentials: Annotated[HTTPBasicCredentials, Depends(_security)],
+    request: Request,
+    sgeg_admin: str | None = Cookie(default=None),
 ) -> str:
-    user_ok = secrets.compare_digest(credentials.username.encode(), settings.admin_user.encode())
-    pass_ok = secrets.compare_digest(credentials.password.encode(), settings.admin_password.encode())
-    if not (user_ok and pass_ok):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Wrong credentials",
-            headers={"WWW-Authenticate": 'Basic realm="SGEG Admin"'},
-        )
-    return credentials.username
+    """Accept the same cookie set by /dashboard/login."""
+    try:
+        payload = _jwt.decode(sgeg_admin or "", settings.lti_secret_key, algorithms=[_ALGO])
+        return payload["sub"]
+    except Exception:
+        raise HTTPException(status_code=303, headers={"Location": "/dashboard/login"})
 
 
 _STATUS_COLOURS = {
@@ -354,7 +355,7 @@ def _render(
 
 @router.get("/admin", response_class=HTMLResponse)
 def admin_index(
-    admin_user: Annotated[str, Depends(_verify_admin)],
+    admin_user: str = Depends(_verify_admin),
     tickets: str = Query("open", pattern="^(open|closed|all)$"),
 ) -> HTMLResponse:
     init_engine()
@@ -399,7 +400,7 @@ def _course_name_by_id(course_id: int, canvas_courses: list[dict]) -> str | None
 def admin_toggle_course(
     course_id: int,
     action: str,
-    _admin_user: Annotated[str, Depends(_verify_admin)],
+    _admin_user: str = Depends(_verify_admin),
 ) -> RedirectResponse:
     if action not in {"enable", "disable"}:
         raise HTTPException(status_code=400, detail="action must be 'enable' or 'disable'")
@@ -418,7 +419,7 @@ def admin_toggle_course(
 def admin_toggle_learner(
     learner_id: int,
     action: str,
-    _admin_user: Annotated[str, Depends(_verify_admin)],
+    _admin_user: str = Depends(_verify_admin),
 ) -> RedirectResponse:
     if action not in {"enable", "disable"}:
         raise HTTPException(status_code=400, detail="action must be 'enable' or 'disable'")
@@ -431,7 +432,7 @@ def admin_toggle_learner(
 
 @router.post("/admin/learner/optout")
 def admin_optout_learner(
-    _admin_user: Annotated[str, Depends(_verify_admin)],
+    _admin_user: str = Depends(_verify_admin),
     learner_id: int = Form(...),
     name: str = Form(""),
     notes: str = Form(""),
@@ -644,7 +645,7 @@ def _render_learner_page(
 @router.get("/admin/learner/{learner_id}", response_class=HTMLResponse)
 def admin_learner(
     learner_id: int,
-    admin_user: Annotated[str, Depends(_verify_admin)],
+    admin_user: str = Depends(_verify_admin),
 ) -> HTMLResponse:
     init_engine()
     canvas_user: dict | None = None
@@ -685,7 +686,7 @@ def admin_learner(
 @router.post("/admin/ticket/{ticket_id}/close")
 def admin_close_ticket(
     ticket_id: int,
-    _admin_user: Annotated[str, Depends(_verify_admin)],
+    _admin_user: str = Depends(_verify_admin),
 ) -> RedirectResponse:
     init_engine()
     with get_session() as session:
