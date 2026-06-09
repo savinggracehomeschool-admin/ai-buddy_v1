@@ -8,7 +8,7 @@ env:
   AWS_REGION: eu-west-1
   ECR_REGISTRY: 947792709457.dkr.ecr.eu-west-1.amazonaws.com
   ECR_REPOSITORY: sgeg-education-coach
-  APP_RUNNER_ARN: arn:aws:apprunner:eu-west-1:947792709457:service/sgeg-education-coach/b936e430e43a4ae184b878aa6f8e4686
+  APP_RUNNER_ARN: arn:aws:apprunner:eu-west-1:947792709457:service/sgeg-education-coach/60a8d95a404342778d64d850b92655f4
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
