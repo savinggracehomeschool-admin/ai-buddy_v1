@@ -36,7 +36,7 @@ def create_app() -> FastAPI:
     init_engine()
 
     app = FastAPI(
-        title="AI Buddy",
+        title="SGEG Education Coach",
         description="Canvas LTI chatbot for K-12 students, powered by Claude.",
         version="0.2.0",
     )
