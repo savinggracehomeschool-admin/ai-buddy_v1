@@ -45,6 +45,23 @@ jobs:
 
       - name: Deploy to App Runner
         run: |
+          # Wait until service is in a deployable state (up to 10 minutes)
+          for i in $(seq 1 20); do
+            STATUS=$(aws apprunner describe-service \
+              --service-arn ${{ env.APP_RUNNER_ARN }} \
+              --region ${{ env.AWS_REGION }} \
+              --query Service.Status --output text)
+            echo "App Runner status: $STATUS"
+            if [ "$STATUS" = "RUNNING" ]; then
+              break
+            fi
+            if [ "$STATUS" = "CREATE_FAILED" ] || [ "$STATUS" = "DELETED" ]; then
+              echo "Service is in unrecoverable state: $STATUS"
+              exit 1
+            fi
+            sleep 30
+          done
+
           aws apprunner start-deployment \
             --service-arn ${{ env.APP_RUNNER_ARN }} \
             --region ${{ env.AWS_REGION }}
