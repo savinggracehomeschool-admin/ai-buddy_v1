@@ -43,25 +43,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Deploy to App Runner
+      - name: Confirm deployment triggered
         run: |
-          # Wait until service is in a deployable state (up to 10 minutes)
-          for i in $(seq 1 20); do
-            STATUS=$(aws apprunner describe-service \
-              --service-arn ${{ env.APP_RUNNER_ARN }} \
-              --region ${{ env.AWS_REGION }} \
-              --query Service.Status --output text)
-            echo "App Runner status: $STATUS"
-            if [ "$STATUS" = "RUNNING" ]; then
-              break
-            fi
-            if [ "$STATUS" = "CREATE_FAILED" ] || [ "$STATUS" = "DELETED" ]; then
-              echo "Service is in unrecoverable state: $STATUS"
-              exit 1
-            fi
-            sleep 30
-          done
-
-          aws apprunner start-deployment \
-            --service-arn ${{ env.APP_RUNNER_ARN }} \
-            --region ${{ env.AWS_REGION }}
+          echo "Image pushed to ECR — App Runner auto-deployment triggered."
+          echo "Track progress at: https://eu-west-1.console.aws.amazon.com/apprunner"
