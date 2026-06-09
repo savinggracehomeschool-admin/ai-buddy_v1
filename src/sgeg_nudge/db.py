@@ -26,10 +26,18 @@ from sqlalchemy.orm import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-# DB_PATH env var lets Render (or any host) store the DB on a persistent disk.
 import os as _os
-DEFAULT_DB_PATH = Path(_os.environ.get("DB_PATH", str(PROJECT_ROOT / "sgeg.db")))
-DEFAULT_DB_URL = f"sqlite:///{DEFAULT_DB_PATH}"
+
+# DATABASE_URL (Postgres) takes priority — set by Render or docker-compose.
+# Falls back to SQLite for local dev without Docker.
+_DATABASE_URL = _os.environ.get("DATABASE_URL", "")
+if _DATABASE_URL:
+    # Render sets postgres:// — SQLAlchemy needs postgresql://
+    DEFAULT_DB_URL = _DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    DEFAULT_DB_PATH = Path("/data/sgeg.db")  # unused but kept for key path resolution
+else:
+    DEFAULT_DB_PATH = Path(_os.environ.get("DB_PATH", str(PROJECT_ROOT / "sgeg.db")))
+    DEFAULT_DB_URL = f"sqlite:///{DEFAULT_DB_PATH}"
 
 # --- enum-ish constants kept as plain strings so SQLite stays simple --------
 

@@ -1,17 +1,21 @@
+databases:
+  - name: sgeg-coach-db
+    databaseName: sgeg_coach
+    user: sgeg
+    plan: starter       # $7/mo — 1GB Postgres, daily backups
+
 services:
   - type: web
     name: sgeg-education-coach
-    runtime: python
-    region: frankfurt   # closest to South Africa on Render free tier
-    plan: starter       # $7/mo — no sleep, persistent disk available
-    buildCommand: pip install uv && uv sync --frozen
-    startCommand: uv run uvicorn sgeg_nudge.main:create_app --factory --host 0.0.0.0 --port $PORT
-    healthCheckPath: /
-    disk:
-      name: sgeg-data
-      mountPath: /data
-      sizeGB: 1
+    runtime: docker
+    region: frankfurt
+    plan: starter       # $7/mo — no sleep, always on
+    dockerfilePath: ./Dockerfile
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sgeg-coach-db
+          property: connectionString
       - key: CANVAS_BASE_URL
         sync: false
       - key: CANVAS_API_TOKEN
@@ -32,5 +36,3 @@ services:
         value: "false"
       - key: APP_URL
         value: "https://savinggraceeducationaicoach.co.za"
-      - key: DB_PATH
-        value: "/data/sgeg.db"

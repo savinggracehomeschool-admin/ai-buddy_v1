@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: sgeg_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       sgeg_coach
+      POSTGRES_USER:     sgeg
+      POSTGRES_PASSWORD: sgeg_dev_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sgeg -d sgeg_coach"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: sgeg_app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://sgeg:sgeg_dev_password@db:5432/sgeg_coach
+      DB_PATH: /data/sgeg.db        # fallback only — DATABASE_URL takes priority
+    volumes:
+      - appdata:/data
+      - ./src:/app/src               # hot-reload source in dev
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:
+  appdata:
