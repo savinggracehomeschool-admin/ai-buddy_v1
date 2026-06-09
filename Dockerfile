@@ -1,17 +1,13 @@
 # ── Stage 1: dependency builder ───────────────────────────────────────────────
 FROM python:3.12-slim AS builder
 
-WORKDIR /build
+WORKDIR /app
 
-# Install uv
 RUN pip install uv --no-cache-dir
 
-# Copy only dependency files first (better layer caching — code changes don't
-# invalidate this layer)
 COPY pyproject.toml uv.lock ./
 
-# Install all dependencies into an isolated venv
-RUN uv sync --frozen --no-dev --no-editable
+RUN uv sync --frozen --no-dev --no-install-project
 
 # ── Stage 2: runtime image ─────────────────────────────────────────────────────
 FROM python:3.12-slim AS runtime
@@ -22,22 +18,18 @@ LABEL org.opencontainers.image.vendor="Saving Grace Education Group"
 
 WORKDIR /app
 
-# Non-root user for security
 RUN addgroup --system sgeg && adduser --system --ingroup sgeg sgeg
 
-# Copy the installed venv from builder
-COPY --from=builder /build/.venv /app/.venv
+COPY --from=builder /app/.venv /app/.venv
 
-# Copy application source
 COPY src/ ./src/
 
-# Data directory for LTI keys (used when no external secret store)
 RUN mkdir -p /data && chown sgeg:sgeg /data
 
 USER sgeg
 
-# Make venv the active Python
 ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH="/app/src" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
