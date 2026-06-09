@@ -1,0 +1,37 @@
+# Version control
+.git
+.gitignore
+
+# Secrets — never in image
+.env
+*.pem
+*.key
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# Virtual envs
+.venv
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Dev / editor
+.DS_Store
+.idea
+.vscode
+*.log
+
+# Docs / scripts not needed at runtime
+docs/
+SESSION-NOTES.md
+build-copilot-prompt.md.docx
+canvas_theme/
+tests/

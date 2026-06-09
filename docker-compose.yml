@@ -1,5 +1,11 @@
 version: "3.9"
 
+# ── Local development stack ────────────────────────────────────────────────────
+# Usage:
+#   docker-compose up --build        # start everything
+#   docker-compose down -v           # stop + wipe volumes
+#   docker-compose logs -f app       # tail app logs
+
 services:
 
   db:
@@ -21,7 +27,9 @@ services:
       retries: 10
 
   app:
-    build: .
+    build:
+      context: .
+      target: runtime
     container_name: sgeg_app
     restart: unless-stopped
     depends_on:
@@ -30,10 +38,9 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://sgeg:sgeg_dev_password@db:5432/sgeg_coach
-      DB_PATH: /data/sgeg.db        # fallback only — DATABASE_URL takes priority
+      LTI_DEV_MODE: "true"
     volumes:
       - appdata:/data
-      - ./src:/app/src               # hot-reload source in dev
     ports:
       - "8000:8000"
 
