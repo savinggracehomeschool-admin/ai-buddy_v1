@@ -622,16 +622,20 @@
     }
   });
 
-  // Intercept all external link clicks and ask the parent Canvas frame to open
-  // them — window.open() from an iframe is blocked by browsers, but from the
-  // Canvas page context it works on desktop and mobile browsers.
+  // Open external links in a new tab.
+  // Try window.open() directly first — works when the tool is in full-width or
+  // standalone mode. If the browser blocks it (returns null, e.g. sandboxed iframe),
+  // relay via postMessage so the parent Canvas frame opens it instead.
   document.addEventListener("click", e => {
     const link = e.target.closest("a[href]");
     if (!link) return;
     const href = link.getAttribute("href");
     if (!href || !href.startsWith("http")) return;
     e.preventDefault();
-    window.parent.postMessage({ type: "AIBUDDY_OPEN_URL", url: href }, "*");
+    const tab = window.open(href, "_blank", "noopener,noreferrer");
+    if (!tab) {
+      window.parent.postMessage({ type: "AIBUDDY_OPEN_URL", url: href }, "*");
+    }
   });
 
   modalConfirm.addEventListener("click", async () => {
