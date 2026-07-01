@@ -297,7 +297,7 @@
           <span class="comp-assign-due">${escHtml(item.due_friendly || "")}</span>
         </span>
         ${pts ? `<span class="comp-assign-pts">${escHtml(pts)}</span>` : ""}
-        ${item.url ? `<a class="comp-assign-open" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open ↗</a>` : '<span class="comp-assign-chevron">›</span>'}`;
+        ${item.url ? `<a class="comp-assign-open" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer">Open ↗</a>` : '<span class="comp-assign-chevron">›</span>'}`;
 
       const row = make("div", `comp-assign-item ${item.status || ""}`);
       row.style.cursor = item.url ? "pointer" : "default";
@@ -414,64 +414,6 @@
     });
     card.appendChild(grid);
     return card;
-  }
-
-  // ── Assignment detail drawer (Phase 3) ─────────────────────────────────────
-  // Tapping an assignment card shows description inline (no Canvas redirect needed
-  // for browsing). External link is still available via "Open in Canvas" button.
-  function buildAssignmentDrawer(item) {
-    const drawer = make("div", "assign-drawer");
-    drawer.innerHTML = `
-      <div class="assign-drawer-head">
-        <span>${escHtml(item.name || "Assignment")}</span>
-        <button class="drawer-close" aria-label="Close">✕</button>
-      </div>
-      <div class="assign-drawer-body">
-        <p class="assign-meta">Due: ${escHtml(item.due_friendly || "No due date")}
-          ${item.points_possible ? ` · ${escHtml(String(item.points_possible))} pts` : ""}</p>
-        <p class="assign-status">Status: ${{submitted:"✅ Submitted", overdue:"⚠️ Overdue", upcoming:"🕐 Not yet submitted"}[item.status] || "—"}</p>
-        ${item.url ? `<a class="assign-canvas-link" href="${escHtml(item.url)}" target="_blank" rel="noopener">Open in Canvas ↗</a>` : ""}
-      </div>`;
-    drawer.querySelector(".drawer-close").addEventListener("click", () => drawer.remove());
-    return drawer;
-  }
-
-  // ── Module item drawer ─────────────────────────────────────────────────────
-  // Opens when a student taps a module button — shows item details in-app.
-  // "Open in Canvas" button is the explicit exit point, never the default action.
-  function buildItemDrawer(item, moduleName) {
-    const TYPE_LABEL = {
-      File: "File / Video", Assignment: "Assignment", Quiz: "Quiz",
-      Page: "Page", Discussion: "Discussion",
-      ExternalUrl: "External link", ExternalTool: "External tool",
-    };
-    const TYPE_ICON = {
-      File:"📄", Assignment:"📝", Quiz:"📋", Page:"📖",
-      Discussion:"💬", ExternalUrl:"🔗", ExternalTool:"🛠",
-    };
-
-    const typeLabel = TYPE_LABEL[item.type] || item.type || "Item";
-    const icon      = TYPE_ICON[item.type]  || "📄";
-
-    const drawer = make("div", "item-drawer");
-    drawer.innerHTML = `
-      <div class="item-drawer-head">
-        <span class="item-drawer-title">${icon} ${escHtml(item.title || "Item")}</span>
-        <button class="drawer-close" aria-label="Close">✕</button>
-      </div>
-      <div class="item-drawer-body">
-        <p class="item-drawer-meta">Type: ${escHtml(typeLabel)}</p>
-        ${moduleName ? `<p class="item-drawer-meta">Module: ${escHtml(moduleName)}</p>` : ""}
-        ${item.url
-          ? `<a class="item-open-btn" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer">
-               Open in Canvas ↗
-             </a>`
-          : `<p class="item-drawer-meta" style="color:#B91C1C">No Canvas link available for this item.</p>`
-        }
-      </div>`;
-
-    drawer.querySelector(".drawer-close").addEventListener("click", () => drawer.remove());
-    return drawer;
   }
 
   function make(tag, cls) {
@@ -625,8 +567,9 @@
     const href = a.href;
     if (!href || !/^https?:\/\//.test(href)) return;
     e.preventDefault();
+    e.stopPropagation();
     window.parent.postMessage({ type: "AIBUDDY_OPEN_URL", url: href }, "*");
-  }, false);
+  }, true); // capture phase — fires before any child stopPropagation
 
 
   modalConfirm.addEventListener("click", async () => {
