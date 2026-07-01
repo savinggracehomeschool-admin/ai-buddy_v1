@@ -117,9 +117,9 @@
         'align-items:center;justify-content:center;background:#E8F4F6;',
         'gap:12px;font-size:.85rem;color:' + NAVY + ';pointer-events:none;}',
 
-      '@media(max-width:480px){',
-        '#ab-panel{width:100%!important;right:0;left:0;}',
-        '#ab-badge{bottom:16px;right:16px;}',
+      '@media(max-width:768px){',
+        '#ab-panel{width:100%!important;right:0;left:0;bottom:0!important;height:100dvh!important;border-radius:0;border-left:none;}',
+        '#ab-badge{bottom:80px;right:16px;}',
       '}',
 
       '.back-to-top{bottom:90px!important;}',
