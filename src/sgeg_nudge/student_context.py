@@ -322,10 +322,11 @@ def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
                 # Outstanding = past due, not submitted, not excused
                 # Also trust Canvas's own `missing` flag as a fallback
                 overdue = (past_due and not submitted and not excused) or (canvas_missing and not excused)
+                # Upcoming = not yet submitted, not excused (includes assignments with no due date)
                 upcoming = not past_due and not submitted and not excused
 
-                if not overdue and not upcoming:
-                    continue  # submitted or excused — skip
+                if submitted or excused:
+                    continue  # done — skip
 
                 group_id = a.get("assignment_group_id")
                 term = (
@@ -390,25 +391,33 @@ def build_student_context(session: LTISession) -> str:
     # ── Assignments ───────────────────────────────────────────────────────────
     if has_numeric_ids:
         assignments = _fetch_assignments(canvas_user_id, course_id)
-        upcoming = [a for a in assignments if not a["overdue"] and not a["submitted"]]
-        overdue = [a for a in assignments if a["overdue"] and not a["submitted"]]
-
-        if upcoming:
-            lines.append("UPCOMING ASSIGNMENTS (not yet submitted):")
-            for a in upcoming:
-                term_label = f" [{a['term']}]" if a.get("term") else ""
-                lines.append(f"  • {a['name']}{term_label} — due {a['due_friendly']}")
-            lines.append("")
+        overdue   = [a for a in assignments if a["overdue"]]
+        no_date   = [a for a in assignments if not a["overdue"] and not a.get("due_at")]
+        upcoming  = [a for a in assignments if not a["overdue"] and a.get("due_at")]
 
         if overdue:
-            lines.append("OVERDUE / MISSING WORK:")
+            lines.append(f"OVERDUE / MISSING WORK ({len(overdue)} assignments):")
             for a in overdue:
                 term_label = f" [{a['term']}]" if a.get("term") else ""
                 lines.append(f"  • {a['name']}{term_label} — was due {a['due_friendly']}")
             lines.append("")
 
-        if not upcoming and not overdue:
-            lines.append("No outstanding assignments at this time.")
+        if upcoming:
+            lines.append(f"UPCOMING ASSIGNMENTS — NOT YET SUBMITTED ({len(upcoming)}):")
+            for a in upcoming:
+                term_label = f" [{a['term']}]" if a.get("term") else ""
+                lines.append(f"  • {a['name']}{term_label} — due {a['due_friendly']}")
+            lines.append("")
+
+        if no_date:
+            lines.append(f"UNSUBMITTED — NO DUE DATE SET ({len(no_date)}):")
+            for a in no_date:
+                term_label = f" [{a['term']}]" if a.get("term") else ""
+                lines.append(f"  • {a['name']}{term_label}")
+            lines.append("")
+
+        if not overdue and not upcoming and not no_date:
+            lines.append("All assignments submitted — nothing outstanding.")
             lines.append("")
 
     # ── Course modules ────────────────────────────────────────────────────────
