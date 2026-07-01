@@ -305,7 +305,7 @@
       if (item.url) {
         row.addEventListener("click", e => {
           if (e.target.closest("a")) return;
-          window.parent.postMessage({ type: "AIBUDDY_OPEN_URL", url: item.url }, "*");
+          window.open(item.url, "_blank", "noopener,noreferrer");
         });
       }
       li.appendChild(row);
@@ -557,19 +557,6 @@
     }
   });
 
-  // Route all external link clicks through the parent Canvas frame.
-  // target=_blank from inside a cross-origin iframe is blocked by Safari and
-  // some Chrome popup-blocker configurations. Sending AIBUDDY_OPEN_URL lets
-  // the top-level Canvas page call window.open() with no blocker friction.
-  document.addEventListener("click", function(e) {
-    const a = e.target.closest("a[href]");
-    if (!a) return;
-    const href = a.href;
-    if (!href || !/^https?:\/\//.test(href)) return;
-    e.preventDefault();
-    e.stopPropagation();
-    window.parent.postMessage({ type: "AIBUDDY_OPEN_URL", url: href }, "*");
-  }, true); // capture phase — fires before any child stopPropagation
 
 
   modalConfirm.addEventListener("click", async () => {
