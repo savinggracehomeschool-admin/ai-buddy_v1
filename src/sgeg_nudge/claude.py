@@ -478,44 +478,64 @@ def _run_canvas_tool(
             numeric_cid = True
         bucket = tool_input.get("bucket", "upcoming")
         from .student_context import _friendly, _is_overdue
+        from datetime import datetime, timezone as _tz
         items: list[dict] = []
+
+        if not numeric_uid:
+            return {"error": "Cannot verify submissions without a numeric Canvas user ID."}, []
 
         try:
             with CanvasClient(settings.canvas_base_url, settings.canvas_api_token) as c:
-                if bucket == "missing" and numeric_uid:
-                    # Canvas authoritative missing-submission endpoint — crosses all courses
-                    raw = c.list_missing_submissions(int(user_id))
-                    # Filter to the requested course if one was supplied
-                    if numeric_cid and course_id:
-                        raw = [a for a in raw if str(a.get("course_id", "")) == course_id]
-                else:
-                    raw = c.list_assignments(int(course_id), bucket=bucket)
+                all_assignments = c.list_assignments(int(course_id))
+
+                # Bulk submission fetch — one call for all assignments
+                submission_map: dict[int, dict] = {}
+                try:
+                    for sub in c.get_student_submissions_bulk(int(course_id), int(user_id)):
+                        aid = sub.get("assignment_id")
+                        if aid is not None:
+                            submission_map[int(aid)] = sub
+                except Exception as e:
+                    _tool_log.warning("bulk submission fetch failed: %s", e)
+
         except Exception as e:
             _tool_log.warning("get_upcoming_assignments failed: %s", e)
             return {"error": str(e)}, []
 
-        for a in raw:
-            # For 'missing' bucket every item is by definition overdue+unsubmitted
-            if bucket == "missing":
+        for a in all_assignments:
+            aid = int(a["id"])
+            sub = submission_map.get(aid, {})
+            excused = bool(sub.get("excused"))
+            submitted = bool(sub.get("submitted_at"))
+            canvas_missing = bool(sub.get("missing"))
+            past_due = _is_overdue(a.get("due_at"))
+
+            overdue = (past_due and not submitted and not excused) or (canvas_missing and not excused)
+            upcoming = not past_due and not submitted and not excused
+
+            if bucket == "missing" and not overdue:
+                continue
+            if bucket == "upcoming" and not upcoming:
+                continue
+            if bucket == "past" and not past_due:
+                continue
+
+            if excused:
+                status = "excused"
+            elif submitted:
+                status = "submitted"
+            elif overdue:
                 status = "overdue"
             else:
-                submitted = False
-                if numeric_uid:
-                    try:
-                        with CanvasClient(settings.canvas_base_url, settings.canvas_api_token) as c:
-                            sub = c.get_submission(int(course_id), int(a["id"]), int(user_id))
-                        submitted = bool(sub and sub.get("submitted_at"))
-                    except Exception:
-                        pass
-                overdue = _is_overdue(a.get("due_at")) and not submitted
-                status = "submitted" if submitted else ("overdue" if overdue else "upcoming")
+                status = "upcoming"
 
             items.append({
                 "name": a.get("name", "Assignment"),
                 "due_friendly": _friendly(a.get("due_at")),
                 "status": status,
+                "canvas_missing": canvas_missing,
                 "points_possible": a.get("points_possible"),
-                "url": a.get("html_url", f"{settings.canvas_base_url}/courses/{course_id}/assignments/{a['id']}"),
+                "url": a.get("html_url", f"{settings.canvas_base_url}/courses/{course_id}/assignments/{aid}"),
             })
 
         title_map = {

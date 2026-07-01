@@ -248,7 +248,17 @@ def _term_from_due_date(due_at: str | None) -> str | None:
 
 
 def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
-    """Return upcoming + overdue assignments with submission status and term label."""
+    """Return all assignments for a course with accurate per-student submission status.
+
+    Strategy:
+    1. Fetch every assignment in the course (one paginated call).
+    2. Fetch every submission for this student in the course in bulk (one paginated
+       call to /courses/:id/students/submissions). This is the authoritative record —
+       no N+1 per-assignment checks, no silent failures.
+    3. Cross-reference: an assignment is outstanding if its due date has passed and
+       the student has not submitted (submitted_at is null) and it is not excused.
+    4. Upcoming = due in the future and not yet submitted.
+    """
     if not _has_canvas():
         return []
 
@@ -257,7 +267,8 @@ def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
     assignments: list[dict] = []
     try:
         with CanvasClient(settings.canvas_base_url, settings.canvas_api_token) as c:
-            # Build assignment group id → term map
+
+            # ── Term context maps ─────────────────────────────────────────────
             group_term: dict[int, str] = {}
             try:
                 for g in c.list_assignment_groups(int(course_id)):
@@ -267,7 +278,6 @@ def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
             except Exception:
                 pass
 
-            # Build module item content_id → module term map
             module_term: dict[int, str] = {}
             try:
                 for mod in c.list_modules(int(course_id)):
@@ -281,54 +291,64 @@ def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
             except Exception:
                 pass
 
-            # Upcoming assignments (due in the future, not yet submitted)
-            for a in c.list_assignments(int(course_id), bucket="upcoming"):
+            # ── Step 1: all assignments ───────────────────────────────────────
+            all_assignments = c.list_assignments(int(course_id))
+
+            # ── Step 2: all submissions for this student (bulk) ───────────────
+            submission_map: dict[int, dict] = {}
+            try:
+                for sub in c.get_student_submissions_bulk(int(course_id), int(canvas_user_id)):
+                    aid = sub.get("assignment_id")
+                    if aid is not None:
+                        submission_map[int(aid)] = sub
+            except Exception as e:
+                log.warning("bulk submission fetch failed, falling back: %s", e)
+
+            # ── Step 3: cross-reference ───────────────────────────────────────
+            now = datetime.now(timezone.utc)
+            for a in all_assignments:
+                aid = int(a["id"])
+                sub = submission_map.get(aid, {})
+
+                excused = bool(sub.get("excused"))
+                submitted_at = sub.get("submitted_at")
+                submitted = bool(submitted_at)
+                canvas_missing = bool(sub.get("missing"))  # Canvas's own flag
+                workflow = sub.get("workflow_state", "unsubmitted")
+
+                due_at = a.get("due_at")
+                past_due = _is_overdue(due_at)
+
+                # Outstanding = past due, not submitted, not excused
+                # Also trust Canvas's own `missing` flag as a fallback
+                overdue = (past_due and not submitted and not excused) or (canvas_missing and not excused)
+                upcoming = not past_due and not submitted and not excused
+
+                if not overdue and not upcoming:
+                    continue  # submitted or excused — skip
+
                 group_id = a.get("assignment_group_id")
                 term = (
                     (group_id and group_term.get(int(group_id)))
-                    or module_term.get(int(a["id"]))
-                    or _term_from_due_date(a.get("due_at"))
+                    or module_term.get(aid)
+                    or _term_from_due_date(due_at)
                 )
+
                 assignments.append({
-                    "id": a["id"],
+                    "id": aid,
                     "name": a.get("name", "Unnamed"),
-                    "due_at": a.get("due_at"),
-                    "due_friendly": _friendly(a.get("due_at")),
-                    "overdue": False,
-                    "submitted": False,
+                    "due_at": due_at,
+                    "due_friendly": _friendly(due_at),
+                    "overdue": overdue,
+                    "submitted": submitted,
+                    "excused": excused,
+                    "canvas_missing": canvas_missing,
+                    "workflow_state": workflow,
                     "points_possible": a.get("points_possible"),
                     "term": term,
-                    "assignment_group": a.get("assignment_group_id"),
+                    "assignment_group": group_id,
                 })
 
-            # Missing assignments — Canvas authoritative list (past due, not submitted)
-            # Uses /users/:id/missing_submissions which covers ALL enrolled courses,
-            # not just the current one. Much more reliable than fetching "past" bucket
-            # and checking each submission individually.
-            try:
-                for a in c.list_missing_submissions(int(canvas_user_id)):
-                    cid = a.get("course_id")
-                    if cid and str(cid) != str(course_id):
-                        continue  # keep to current course for context relevance
-                    group_id = a.get("assignment_group_id")
-                    term = (
-                        (group_id and group_term.get(int(group_id)))
-                        or module_term.get(int(a["id"]))
-                        or _term_from_due_date(a.get("due_at"))
-                    )
-                    assignments.append({
-                        "id": a["id"],
-                        "name": a.get("name", "Unnamed"),
-                        "due_at": a.get("due_at"),
-                        "due_friendly": _friendly(a.get("due_at")),
-                        "overdue": True,
-                        "submitted": False,
-                        "points_possible": a.get("points_possible"),
-                        "term": term,
-                        "assignment_group": a.get("assignment_group_id"),
-                    })
-            except Exception as e:
-                log.warning("list_missing_submissions failed: %s", e)
     except Exception as e:
         log.warning("_fetch_assignments error: %s", e)
 

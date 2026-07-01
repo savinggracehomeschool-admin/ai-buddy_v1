@@ -266,6 +266,31 @@ class CanvasClient:
             {"include[]": "course"},
         ))
 
+    def get_student_submissions_bulk(
+        self,
+        course_id: int | str,
+        user_id: int | str,
+    ) -> list[dict]:
+        """Fetch ALL submission records for one student in a course in a single paginated call.
+
+        Uses /courses/:id/students/submissions which returns one row per assignment
+        regardless of whether the student submitted. Each row includes:
+          - assignment_id, submitted_at, missing (Canvas flag), late, excused,
+            workflow_state ('submitted'|'unsubmitted'|'graded'|'pending_review'),
+            score, grade.
+
+        This is the authoritative bulk check — far more reliable than N+1 calls
+        to /submissions/:assignment_id/:user_id.
+        """
+        return list(self._paginate(
+            f"/api/v1/courses/{course_id}/students/submissions",
+            {
+                "student_ids[]": str(user_id),
+                "include[]": ["assignment"],
+                "per_page": 100,
+            },
+        ))
+
     def get_submission(
         self,
         course_id: int,
