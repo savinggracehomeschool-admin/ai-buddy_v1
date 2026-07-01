@@ -95,7 +95,7 @@
 
     const listItems = items.map(i =>
       `<li>
-        <a href="${escHtml(i.url || "#")}" target="_parent" rel="noopener">${escHtml(i.name)}</a>
+        <a href="${escHtml(i.url || "#")}" target="_blank" rel="noopener">${escHtml(i.name)}</a>
         ${i.due_friendly ? `<span class="missing-due">${escHtml(i.due_friendly)}</span>` : ""}
       </li>`
     ).join("");
@@ -131,7 +131,7 @@
     let s = escHtml(raw);
     s = s.replace(/\*\*([^*\n]{1,120})\*\*/g, "<strong>$1</strong>");
     // Make URLs clickable, opening in parent frame (not inside the panel iframe)
-    s = s.replace(/(https?:\/\/[^\s<"]+)/g, '<a href="$1" target="_parent" rel="noopener noreferrer">$1</a>');
+    s = s.replace(/(https?:\/\/[^\s<"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
     s = s.replace(/\n/g, "<br>");
     return s;
   }
@@ -236,7 +236,7 @@
     head.innerHTML = `
       <span class="comp-head-icon">📊</span>
       <span class="comp-head-title">${escHtml(c.course_name || "Course")}</span>
-      ${c.course_url ? `<a class="comp-head-link" href="${escHtml(c.course_url)}" target="_parent" rel="noopener">View grades ↗</a>` : ""}`;
+      ${c.course_url ? `<a class="comp-head-link" href="${escHtml(c.course_url)}" target="_blank" rel="noopener">View grades ↗</a>` : ""}`;
     card.appendChild(head);
 
     const body = make("div", "comp-grade-body");
@@ -297,19 +297,17 @@
           <span class="comp-assign-due">${escHtml(item.due_friendly || "")}</span>
         </span>
         ${pts ? `<span class="comp-assign-pts">${escHtml(pts)}</span>` : ""}
-        <span class="comp-assign-chevron">›</span>`;
+        ${item.url ? `<a class="comp-assign-open" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open ↗</a>` : '<span class="comp-assign-chevron">›</span>'}`;
 
-      // Phase 3: tap opens in-app drawer, not Canvas redirect
       const row = make("div", `comp-assign-item ${item.status || ""}`);
-      row.style.cursor = "pointer";
+      row.style.cursor = item.url ? "pointer" : "default";
       row.innerHTML = inner;
-      row.addEventListener("click", () => {
-        // Remove any existing drawer first
-        document.querySelectorAll(".assign-drawer").forEach(d => d.remove());
-        const drawer = buildAssignmentDrawer(item);
-        chatWindow.appendChild(drawer);
-        drawer.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      });
+      if (item.url) {
+        row.addEventListener("click", e => {
+          if (e.target.closest("a")) return;
+          window.open(item.url, "_blank", "noopener,noreferrer");
+        });
+      }
       li.appendChild(row);
       list.appendChild(li);
     });
@@ -345,23 +343,22 @@
     const hidden  = items.slice(maxVisible);
 
     function addButton(item) {
-      const btn = document.createElement("button");
-      btn.className = "comp-btn";
-      btn.setAttribute("type", "button");
       const icon = TYPE_ICON[item.type] || "📄";
-      btn.innerHTML = `<span class="btn-icon">${icon}</span><span>${escHtml(item.title || "Item")}</span>`;
-
-      btn.addEventListener("click", () => {
-        // Remove any open item drawer first
-        document.querySelectorAll(".item-drawer").forEach(d => d.remove());
-        const drawer = buildItemDrawer(item, c.module_name || "");
-        // Insert drawer right after the comp-block that contains this button
-        const block = btn.closest(".comp-block") || chatWindow;
-        block.insertAdjacentElement("afterend", drawer);
-        drawer.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      });
-
-      grid.appendChild(btn);
+      if (item.url) {
+        const a = document.createElement("a");
+        a.className = "comp-btn";
+        a.href = item.url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.innerHTML = `<span class="btn-icon">${icon}</span><span>${escHtml(item.title || "Item")}</span>`;
+        grid.appendChild(a);
+      } else {
+        const btn = document.createElement("button");
+        btn.className = "comp-btn";
+        btn.setAttribute("type", "button");
+        btn.innerHTML = `<span class="btn-icon">${icon}</span><span>${escHtml(item.title || "Item")}</span>`;
+        grid.appendChild(btn);
+      }
     }
 
     visible.forEach(addButton);
@@ -402,22 +399,18 @@
 
     const grid = make("div", "comp-btn-grid");
     items.forEach(item => {
-      const btn = document.createElement("button");
-      btn.className = "comp-btn";
-      btn.setAttribute("type", "button");
       const icon = item.icon || TYPE_ICON[item.type] || "📄";
-      btn.innerHTML = `<span class="btn-icon">${icon}</span><span>${escHtml(item.title || "Item")}</span>`;
-      btn.addEventListener("click", () => {
-        document.querySelectorAll(".item-drawer").forEach(d => d.remove());
-        const drawer = buildItemDrawer(
-          { title: item.title, type: item.type, url: item.url },
-          item.module || ""
-        );
-        const block = btn.closest(".comp-block") || chatWindow;
-        block.insertAdjacentElement("afterend", drawer);
-        drawer.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      });
-      grid.appendChild(btn);
+      const el = document.createElement(item.url ? "a" : "button");
+      el.className = "comp-btn";
+      if (item.url) {
+        el.href = item.url;
+        el.target = "_blank";
+        el.rel = "noopener noreferrer";
+      } else {
+        el.setAttribute("type", "button");
+      }
+      el.innerHTML = `<span class="btn-icon">${icon}</span><span>${escHtml(item.title || "Item")}</span>`;
+      grid.appendChild(el);
     });
     card.appendChild(grid);
     return card;
@@ -437,7 +430,7 @@
         <p class="assign-meta">Due: ${escHtml(item.due_friendly || "No due date")}
           ${item.points_possible ? ` · ${escHtml(String(item.points_possible))} pts` : ""}</p>
         <p class="assign-status">Status: ${{submitted:"✅ Submitted", overdue:"⚠️ Overdue", upcoming:"🕐 Not yet submitted"}[item.status] || "—"}</p>
-        ${item.url ? `<a class="assign-canvas-link" href="${escHtml(item.url)}" target="_parent" rel="noopener">Open in Canvas ↗</a>` : ""}
+        ${item.url ? `<a class="assign-canvas-link" href="${escHtml(item.url)}" target="_blank" rel="noopener">Open in Canvas ↗</a>` : ""}
       </div>`;
     drawer.querySelector(".drawer-close").addEventListener("click", () => drawer.remove());
     return drawer;
@@ -470,7 +463,7 @@
         <p class="item-drawer-meta">Type: ${escHtml(typeLabel)}</p>
         ${moduleName ? `<p class="item-drawer-meta">Module: ${escHtml(moduleName)}</p>` : ""}
         ${item.url
-          ? `<a class="item-open-btn" href="${escHtml(item.url)}" target="_parent" rel="noopener noreferrer">
+          ? `<a class="item-open-btn" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer">
                Open in Canvas ↗
              </a>`
           : `<p class="item-drawer-meta" style="color:#B91C1C">No Canvas link available for this item.</p>`
@@ -622,21 +615,6 @@
     }
   });
 
-  // Open external links in a new tab.
-  // Try window.open() directly first — works when the tool is in full-width or
-  // standalone mode. If the browser blocks it (returns null, e.g. sandboxed iframe),
-  // relay via postMessage so the parent Canvas frame opens it instead.
-  document.addEventListener("click", e => {
-    const link = e.target.closest("a[href]");
-    if (!link) return;
-    const href = link.getAttribute("href");
-    if (!href || !href.startsWith("http")) return;
-    e.preventDefault();
-    const tab = window.open(href, "_blank", "noopener,noreferrer");
-    if (!tab) {
-      window.parent.postMessage({ type: "AIBUDDY_OPEN_URL", url: href }, "*");
-    }
-  });
 
   modalConfirm.addEventListener("click", async () => {
     const msg = escalateMsg.value.trim();
