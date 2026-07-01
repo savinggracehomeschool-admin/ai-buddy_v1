@@ -189,10 +189,11 @@
     block.className = "comp-block";
     components.forEach(c => {
       let el = null;
-      if      (c.type === "grades_card")    el = buildGradesCard(c);
-      else if (c.type === "assignment_list") el = buildAssignmentList(c);
-      else if (c.type === "module_section")  el = buildModuleSection(c);
-      else if (c.type === "course_picker")   el = buildCoursePicker(c);
+      if      (c.type === "grades_card")           el = buildGradesCard(c);
+      else if (c.type === "assignment_list")        el = buildAssignmentList(c);
+      else if (c.type === "module_section")         el = buildModuleSection(c);
+      else if (c.type === "course_picker")          el = buildCoursePicker(c);
+      else if (c.type === "content_search_results") el = buildContentSearchResults(c);
       if (el) block.appendChild(el);
     });
     return block.childElementCount ? block : null;
@@ -376,6 +377,48 @@
       grid.appendChild(expandBtn);
     }
 
+    card.appendChild(grid);
+    return card;
+  }
+
+  // ── Content search results (knowledge base) ───────────────────────────────
+  function buildContentSearchResults(c) {
+    const TYPE_ICON = { File:"📄", Assignment:"📝", Quiz:"📋", Page:"📖",
+                        Discussion:"💬", ExternalUrl:"🔗", ExternalTool:"🛠" };
+    const card = make("div", "comp-card");
+    const head = make("div", "comp-head");
+    head.innerHTML = `<span class="comp-head-icon">🔍</span>
+      <span class="comp-head-title">Results for "${escHtml(c.query || "")}"</span>`;
+    card.appendChild(head);
+
+    const items = (c.items || []).filter(i => i.url);
+    if (!items.length) {
+      const p = make("p", "comp-more");
+      p.style.padding = "10px 13px";
+      p.textContent = "No matching content found.";
+      card.appendChild(p);
+      return card;
+    }
+
+    const grid = make("div", "comp-btn-grid");
+    items.forEach(item => {
+      const btn = document.createElement("button");
+      btn.className = "comp-btn";
+      btn.setAttribute("type", "button");
+      const icon = item.icon || TYPE_ICON[item.type] || "📄";
+      btn.innerHTML = `<span class="btn-icon">${icon}</span><span>${escHtml(item.title || "Item")}</span>`;
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".item-drawer").forEach(d => d.remove());
+        const drawer = buildItemDrawer(
+          { title: item.title, type: item.type, url: item.url },
+          item.module || ""
+        );
+        const block = btn.closest(".comp-block") || chatWindow;
+        block.insertAdjacentElement("afterend", drawer);
+        drawer.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+      grid.appendChild(btn);
+    });
     card.appendChild(grid);
     return card;
   }
