@@ -275,9 +275,13 @@ _CANVAS_TOOLS = [
     {
         "name": "get_upcoming_assignments",
         "description": (
-            "Fetch upcoming or past assignments for the student from Canvas. "
+            "Fetch assignments for the student from Canvas. "
             "Call this when a student asks about tasks, assignments, due dates, "
-            "what work is still to do, or what they might have missed."
+            "outstanding work, missing work, or what they might have missed. "
+            "IMPORTANT: To find missing or overdue assignments, use bucket='missing' — "
+            "this is the authoritative Canvas list of past-due unsubmitted work. "
+            "Use bucket='upcoming' for work not yet due. Call both if the student "
+            "asks generally about outstanding or remaining work."
         ),
         "input_schema": {
             "type": "object",
@@ -288,10 +292,11 @@ _CANVAS_TOOLS = [
                 },
                 "bucket": {
                     "type": "string",
-                    "enum": ["upcoming", "past"],
+                    "enum": ["upcoming", "missing", "past"],
                     "description": (
-                        "'upcoming' for assignments not yet due, "
-                        "'past' for assignments whose due date has passed."
+                        "'missing' for past-due assignments not yet submitted (overdue/outstanding work). "
+                        "'upcoming' for assignments not yet due. "
+                        "'past' for all past assignments regardless of submission status."
                     ),
                 },
             },
@@ -472,26 +477,39 @@ def _run_canvas_tool(
             course_id = str(enrolled[0])
             numeric_cid = True
         bucket = tool_input.get("bucket", "upcoming")
+        from .student_context import _friendly, _is_overdue
+        items: list[dict] = []
+
         try:
-            from .student_context import _friendly, _is_overdue
             with CanvasClient(settings.canvas_base_url, settings.canvas_api_token) as c:
-                raw = c.list_assignments(int(course_id), bucket=bucket)
+                if bucket == "missing" and numeric_uid:
+                    # Canvas authoritative missing-submission endpoint — crosses all courses
+                    raw = c.list_missing_submissions(int(user_id))
+                    # Filter to the requested course if one was supplied
+                    if numeric_cid and course_id:
+                        raw = [a for a in raw if str(a.get("course_id", "")) == course_id]
+                else:
+                    raw = c.list_assignments(int(course_id), bucket=bucket)
         except Exception as e:
             _tool_log.warning("get_upcoming_assignments failed: %s", e)
             return {"error": str(e)}, []
 
-        items: list[dict] = []
         for a in raw:
-            submitted = False
-            if numeric_uid:
-                try:
-                    with CanvasClient(settings.canvas_base_url, settings.canvas_api_token) as c:
-                        sub = c.get_submission(int(course_id), int(a["id"]), int(user_id))
-                    submitted = bool(sub and sub.get("submitted_at"))
-                except Exception:
-                    pass
-            overdue = _is_overdue(a.get("due_at")) and not submitted
-            status = "submitted" if submitted else ("overdue" if overdue else "upcoming")
+            # For 'missing' bucket every item is by definition overdue+unsubmitted
+            if bucket == "missing":
+                status = "overdue"
+            else:
+                submitted = False
+                if numeric_uid:
+                    try:
+                        with CanvasClient(settings.canvas_base_url, settings.canvas_api_token) as c:
+                            sub = c.get_submission(int(course_id), int(a["id"]), int(user_id))
+                        submitted = bool(sub and sub.get("submitted_at"))
+                    except Exception:
+                        pass
+                overdue = _is_overdue(a.get("due_at")) and not submitted
+                status = "submitted" if submitted else ("overdue" if overdue else "upcoming")
+
             items.append({
                 "name": a.get("name", "Assignment"),
                 "due_friendly": _friendly(a.get("due_at")),
@@ -500,13 +518,18 @@ def _run_canvas_tool(
                 "url": a.get("html_url", f"{settings.canvas_base_url}/courses/{course_id}/assignments/{a['id']}"),
             })
 
+        title_map = {
+            "missing": "Missing / Overdue Work",
+            "upcoming": "Upcoming Work",
+            "past": "Past Assignments",
+        }
         component = {
             "type": "assignment_list",
-            "title": "Upcoming Work" if bucket == "upcoming" else "Past Assignments",
+            "title": title_map.get(bucket, "Assignments"),
             "course_id": course_id,
             "items": items,
         }
-        return {"assignments": items}, [component] if items else []
+        return {"assignments": items, "total": len(items)}, [component] if items else []
 
     # ── get_course_modules ────────────────────────────────────────────────────
     if tool_name == "get_course_modules":
