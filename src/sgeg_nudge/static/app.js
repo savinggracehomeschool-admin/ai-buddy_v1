@@ -305,7 +305,7 @@
       if (item.url) {
         row.addEventListener("click", e => {
           if (e.target.closest("a")) return;
-          window.open(item.url, "_blank", "noopener,noreferrer");
+          window.open(item.url, "_blank");
         });
       }
       li.appendChild(row);
@@ -556,6 +556,20 @@
       escalateMsg.value = "";
     }
   });
+
+  // Prevent any external link from navigating the chat iframe.
+  // window.open() without a features string opens as a tab (not a popup),
+  // so it is NOT treated as a popup window and is never blocked.
+  // Called synchronously during the user gesture — user activation is intact.
+  document.addEventListener("click", function(e) {
+    var a = e.target.closest("a[href]");
+    if (!a) return;
+    var href = a.href;
+    if (!href || !/^https:\/\//.test(href)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(href, "_blank");
+  }, true);
 
 
 
