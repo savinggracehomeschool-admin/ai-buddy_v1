@@ -579,6 +579,18 @@
     }
   });
 
+  // Intercept all external link clicks and ask the parent Canvas frame to open
+  // them — window.open() from an iframe is blocked by browsers, but from the
+  // Canvas page context it works on desktop and mobile browsers.
+  document.addEventListener("click", e => {
+    const link = e.target.closest("a[href]");
+    if (!link) return;
+    const href = link.getAttribute("href");
+    if (!href || !href.startsWith("http")) return;
+    e.preventDefault();
+    window.parent.postMessage({ type: "AIBUDDY_OPEN_URL", url: href }, "*");
+  });
+
   modalConfirm.addEventListener("click", async () => {
     const msg = escalateMsg.value.trim();
     escalateModal.setAttribute("hidden", "");

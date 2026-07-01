@@ -250,6 +250,11 @@
     if (!e.data || typeof e.data !== 'object') return;
     if (e.data.type === 'AIBUDDY_UNREAD') showUnread(e.data.count);
     if (e.data.type === 'AIBUDDY_CLEAR')  clearUnread();
+    // Open links from inside the chat iframe — window.open from Canvas context
+    // is never blocked by browsers, unlike window.open from inside an iframe.
+    if (e.data.type === 'AIBUDDY_OPEN_URL' && e.data.url) {
+      window.open(e.data.url, '_blank', 'noopener,noreferrer');
+    }
   });
 
   /* ── Inject badge ────────────────────────────────────────────────────────── */
