@@ -350,7 +350,7 @@ def handle_due_dates(lti_session, grade_level: int | None) -> RouterResponse:
                             "due_friendly": _friendly(a.get("due_at")),
                             "status": "overdue" if overdue else "upcoming",
                             "points_possible": a.get("points_possible"),
-                            "url": a.get("html_url", ""),
+                            "url": a.get("html_url") or f"{settings.canvas_base_url}/courses/{course_id}/assignments/{a['id']}",
                         })
                 except Exception as exc:
                     log.warning("handle_due_dates course=%s: %s", course_id, exc)

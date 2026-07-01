@@ -348,6 +348,7 @@ def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
                     "points_possible": a.get("points_possible"),
                     "term": term,
                     "assignment_group": group_id,
+                    "url": a.get("html_url", ""),
                 })
 
     except Exception as e:
@@ -399,21 +400,24 @@ def build_student_context(session: LTISession) -> str:
             lines.append(f"OVERDUE / MISSING WORK ({len(overdue)} assignments):")
             for a in overdue:
                 term_label = f" [{a['term']}]" if a.get("term") else ""
-                lines.append(f"  • {a['name']}{term_label} — was due {a['due_friendly']}")
+                url_label  = f"  → {a['url']}" if a.get("url") else ""
+                lines.append(f"  • {a['name']}{term_label} — was due {a['due_friendly']}{url_label}")
             lines.append("")
 
         if upcoming:
             lines.append(f"UPCOMING ASSIGNMENTS — NOT YET SUBMITTED ({len(upcoming)}):")
             for a in upcoming:
                 term_label = f" [{a['term']}]" if a.get("term") else ""
-                lines.append(f"  • {a['name']}{term_label} — due {a['due_friendly']}")
+                url_label  = f"  → {a['url']}" if a.get("url") else ""
+                lines.append(f"  • {a['name']}{term_label} — due {a['due_friendly']}{url_label}")
             lines.append("")
 
         if no_date:
             lines.append(f"UNSUBMITTED — NO DUE DATE SET ({len(no_date)}):")
             for a in no_date:
                 term_label = f" [{a['term']}]" if a.get("term") else ""
-                lines.append(f"  • {a['name']}{term_label}")
+                url_label  = f"  → {a['url']}" if a.get("url") else ""
+                lines.append(f"  • {a['name']}{term_label}{url_label}")
             lines.append("")
 
         if not overdue and not upcoming and not no_date:
