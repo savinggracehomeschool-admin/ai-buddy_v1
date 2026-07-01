@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -292,8 +293,28 @@ def send_message(
 
         db.commit()
 
+    # For technical escalations, submit to external ticketing system and
+    # append the ticket reference to the reply so the student sees it
+    ticket_ref: str | None = None
+    if reply.escalated and reply.escalation_reason == "technical":
+        try:
+            ticket_ref = _submit_ticket_to_external(
+                email=lti.user_id,
+                name=lti.user_name or lti.user_id,
+                course=lti.course_title,
+                subject="Technical support request",
+                description=body.message[:500],
+                urgency="normal",
+            )
+        except Exception:
+            logger.warning("Auto-escalation ticket submission failed", exc_info=True)
+
+    reply_text = reply.text
+    if ticket_ref:
+        reply_text = f"{reply_text}\n\nYour reference number is **{ticket_ref}**."
+
     return MessageResponse(
-        reply=reply.text,
+        reply=reply_text,
         components=reply.components,
         escalated=reply.escalated,
         escalation_reason=reply.escalation_reason,
@@ -398,12 +419,111 @@ def manual_escalate(
         )
         db.commit()
 
-    msg = (
-        "Your teacher has been notified urgently and will follow up as soon as possible."
-        if body.urgency == "urgent"
-        else "A teacher has been notified and will follow up with you shortly."
+    # Forward to external ticketing system (mock by default; swap TICKET_API_URL for real)
+    ticket_ref = _submit_ticket_to_external(
+        email=lti.user_id,
+        name=lti.user_name or lti.user_id,
+        course=lti.course_title,
+        subject=body.subject or "Support request",
+        description=body.message or "",
+        urgency=body.urgency,
     )
-    return {"status": "escalated", "message": msg}
+
+    msg = (
+        f"Your teacher has been notified urgently and will follow up as soon as possible. "
+        f"Reference: {ticket_ref}"
+        if body.urgency == "urgent"
+        else f"A teacher has been notified and will follow up with you shortly. "
+             f"Reference: {ticket_ref}"
+    )
+    return {"status": "escalated", "ticket_ref": ticket_ref, "message": msg}
+
+
+class ExternalTicketPayload(BaseModel):
+    email: str
+    name: str
+    course: str | None = None
+    subject: str
+    description: str
+    urgency: str = "normal"
+    ticket_ref: str | None = None
+
+
+@router.post("/api/mock-tickets/create")
+def mock_ticket_create(payload: ExternalTicketPayload) -> dict:
+    """Mock external ticketing API — replace URL + auth with real system later.
+
+    Accepts a ticket payload, stores it locally, and returns a fake ticket
+    reference. Swap this endpoint for the real ticketing system API when ready.
+    """
+    import random, string
+    ref = "SGT-" + "".join(random.choices(string.digits, k=6))
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    with get_session() as db:
+        db.add(ChatTicket(
+            user_id=payload.email,
+            user_name=payload.name,
+            course_name=payload.course,
+            category="technical",
+            urgency=payload.urgency,
+            subject=payload.subject,
+            description=payload.description,
+            status="new",
+            created_at=now,
+            updated_at=now,
+        ))
+        db.commit()
+    return {
+        "status": "created",
+        "ticket_ref": ref,
+        "message": f"Ticket {ref} created successfully.",
+    }
+
+
+def _submit_ticket_to_external(
+    *,
+    email: str,
+    name: str,
+    course: str | None,
+    subject: str,
+    description: str,
+    urgency: str = "normal",
+) -> str:
+    """Submit a ticket to the external ticketing API.
+
+    Currently points to the mock endpoint. Replace TICKET_API_URL in .env
+    with your real ticketing system URL when ready.
+    """
+    import urllib.request
+    import urllib.error
+
+    ticket_url = (
+        os.getenv("TICKET_API_URL")
+        or "https://savinggraceeducationaicoach.co.za/api/mock-tickets/create"
+    )
+
+    payload_bytes = json.dumps({
+        "email": email,
+        "name": name,
+        "course": course,
+        "subject": subject,
+        "description": description,
+        "urgency": urgency,
+    }).encode()
+
+    req = urllib.request.Request(
+        ticket_url,
+        data=payload_bytes,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+            return data.get("ticket_ref", "SGT-000000")
+    except Exception as e:
+        logger.warning("External ticket API failed: %s", e)
+        return "SGT-000000"
 
 
 @router.get("/api/canvas/sync/status")

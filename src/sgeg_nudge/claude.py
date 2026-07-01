@@ -317,6 +317,35 @@ _CANVAS_TOOLS = [
             "required": ["course_id"],
         },
     },
+    {
+        "name": "search_canvas_content",
+        "description": (
+            "Search the local Canvas content index for modules, pages, assignments, "
+            "quizzes, and files by keyword. Use this when a student is looking for "
+            "specific content ('where is the video about fractions?', 'find the "
+            "worksheet on photosynthesis', 'which module has the Term 2 timetable?'). "
+            "Returns matching items with their Canvas URLs. "
+            "Always call this BEFORE saying content cannot be found."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Keywords to search for, e.g. 'letter A video' or 'term 2 timetable'.",
+                },
+                "item_types": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Optional filter. One or more of: 'Page', 'Assignment', "
+                        "'Quiz', 'File', 'Discussion'. Omit to search all types."
+                    ),
+                },
+            },
+            "required": ["query"],
+        },
+    },
 ]
 
 # ── Canvas tool execution ─────────────────────────────────────────────────────
@@ -544,6 +573,67 @@ def _run_canvas_tool(
                 "items": item_list,
             })
         return {"modules": mod_data}, components
+
+    # ── search_canvas_content ─────────────────────────────────────────────────
+    if tool_name == "search_canvas_content":
+        from .db import search_content, get_session as _get_db_session
+
+        query = tool_input.get("query", "").strip()
+        if not query:
+            return {"error": "query is required"}, []
+
+        item_types = tool_input.get("item_types") or None
+        enrolled_raw2 = getattr(lti_session, "enrolled_course_ids", None) or "[]"
+        try:
+            enrolled_ids2: list[str] = _json.loads(enrolled_raw2)
+        except Exception:
+            enrolled_ids2 = []
+
+        if not enrolled_ids2:
+            return {"results": [], "message": "No enrolled courses to search."}, []
+
+        try:
+            with _get_db_session() as db:
+                hits = search_content(
+                    db,
+                    query=query,
+                    enrolled_course_ids=enrolled_ids2,
+                    item_types=item_types,
+                    grade_level=getattr(lti_session, "grade_level", None),
+                    limit=10,
+                )
+                results = [
+                    {
+                        "title": h.title,
+                        "type": h.item_type,
+                        "module": h.module_name,
+                        "url": h.canvas_url,
+                        "course_id": h.course_id,
+                    }
+                    for h in hits
+                ]
+        except Exception as e:
+            _tool_log.warning("search_canvas_content failed: %s", e)
+            return {"error": str(e)}, []
+
+        components = [
+            {
+                "type": "content_search_results",
+                "query": query,
+                "items": [
+                    {
+                        "title": r["title"],
+                        "type": r["type"],
+                        "module": r.get("module") or "",
+                        "url": r["url"] or "",
+                        "icon": _icon_for_type(r["type"]),
+                    }
+                    for r in results
+                ],
+            }
+        ] if results else []
+
+        return {"results": results, "total": len(results)}, components
 
     return {"error": f"Unknown tool '{tool_name}'"}, []
 
