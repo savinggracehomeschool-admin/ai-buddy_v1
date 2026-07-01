@@ -179,7 +179,7 @@
     iframeEl = document.createElement('iframe');
     iframeEl.id    = 'ab-iframe';
     iframeEl.title = 'Education Coach chat';
-    iframeEl.allow = 'clipboard-write';
+    iframeEl.allow = 'clipboard-write; popups';
     iframeEl.style.opacity = '0';
     iframeEl.src = HOST + '/widget/launch?user_id=' + userId +
                    '&user_name=' + userName +

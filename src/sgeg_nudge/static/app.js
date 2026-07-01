@@ -95,7 +95,7 @@
 
     const listItems = items.map(i =>
       `<li>
-        <a href="${escHtml(i.url || "#")}" target="_blank" rel="noopener">${escHtml(i.name)}</a>
+        <a href="${escHtml(i.url || "#")}" target="_parent" rel="noopener">${escHtml(i.name)}</a>
         ${i.due_friendly ? `<span class="missing-due">${escHtml(i.due_friendly)}</span>` : ""}
       </li>`
     ).join("");
@@ -126,10 +126,12 @@
       .replace(/"/g, "&quot;");
   }
 
-  // ── Render assistant text (no raw URLs — already stripped server-side) ─────
+  // ── Render assistant text ─────────────────────────────────────────────────
   function renderText(raw) {
     let s = escHtml(raw);
     s = s.replace(/\*\*([^*\n]{1,120})\*\*/g, "<strong>$1</strong>");
+    // Make URLs clickable, opening in parent frame (not inside the panel iframe)
+    s = s.replace(/(https?:\/\/[^\s<"]+)/g, '<a href="$1" target="_parent" rel="noopener noreferrer">$1</a>');
     s = s.replace(/\n/g, "<br>");
     return s;
   }
@@ -233,7 +235,7 @@
     head.innerHTML = `
       <span class="comp-head-icon">📊</span>
       <span class="comp-head-title">${escHtml(c.course_name || "Course")}</span>
-      ${c.course_url ? `<a class="comp-head-link" href="${escHtml(c.course_url)}" target="_blank" rel="noopener">View grades ↗</a>` : ""}`;
+      ${c.course_url ? `<a class="comp-head-link" href="${escHtml(c.course_url)}" target="_parent" rel="noopener">View grades ↗</a>` : ""}`;
     card.appendChild(head);
 
     const body = make("div", "comp-grade-body");
@@ -392,7 +394,7 @@
         <p class="assign-meta">Due: ${escHtml(item.due_friendly || "No due date")}
           ${item.points_possible ? ` · ${escHtml(String(item.points_possible))} pts` : ""}</p>
         <p class="assign-status">Status: ${{submitted:"✅ Submitted", overdue:"⚠️ Overdue", upcoming:"🕐 Not yet submitted"}[item.status] || "—"}</p>
-        ${item.url ? `<a class="assign-canvas-link" href="${escHtml(item.url)}" target="_blank" rel="noopener">Open in Canvas ↗</a>` : ""}
+        ${item.url ? `<a class="assign-canvas-link" href="${escHtml(item.url)}" target="_parent" rel="noopener">Open in Canvas ↗</a>` : ""}
       </div>`;
     drawer.querySelector(".drawer-close").addEventListener("click", () => drawer.remove());
     return drawer;
@@ -425,7 +427,7 @@
         <p class="item-drawer-meta">Type: ${escHtml(typeLabel)}</p>
         ${moduleName ? `<p class="item-drawer-meta">Module: ${escHtml(moduleName)}</p>` : ""}
         ${item.url
-          ? `<a class="item-open-btn" href="${escHtml(item.url)}" target="_blank" rel="noopener noreferrer">
+          ? `<a class="item-open-btn" href="${escHtml(item.url)}" target="_parent" rel="noopener noreferrer">
                Open in Canvas ↗
              </a>`
           : `<p class="item-drawer-meta" style="color:#B91C1C">No Canvas link available for this item.</p>`
