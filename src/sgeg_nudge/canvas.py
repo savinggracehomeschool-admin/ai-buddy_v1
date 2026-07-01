@@ -389,6 +389,13 @@ class CanvasClient:
             params={"include[]": ["total_students", "public_description"]},
         ).json()
 
+    def list_assignment_groups(self, course_id: int | str) -> list[dict]:
+        """Return assignment groups for a course (id, name, position)."""
+        return list(self._paginate(
+            f"/api/v1/courses/{course_id}/assignment_groups",
+            {},
+        ))
+
     def list_modules(self, course_id: int | str) -> list[dict]:
         """Return all modules in a course, ordered by position.
 

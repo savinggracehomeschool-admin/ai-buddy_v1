@@ -217,8 +217,38 @@ def fetch_course_overview(course_id: str) -> dict:
     return result
 
 
+def _extract_term(text: str | None) -> str | None:
+    """Extract a term label from a group/module name e.g. 'Term 2 Assignments' → 'Term 2'."""
+    if not text:
+        return None
+    m = re.search(r'\bterm\s*([1-4])\b', text, re.IGNORECASE)
+    if m:
+        return f"Term {m.group(1)}"
+    return None
+
+
+def _term_from_due_date(due_at: str | None) -> str | None:
+    """Classify a due date into a SA school term as a fallback."""
+    if not due_at:
+        return None
+    try:
+        dt = datetime.fromisoformat(due_at.replace("Z", "+00:00"))
+        month, day = dt.month, dt.day
+        if (month == 1 and day >= 15) or month in (2, 3) or (month == 4 and day <= 4):
+            return "Term 1"
+        if (month == 4 and day >= 5) or month in (5, 6) or (month == 7 and day <= 4):
+            return "Term 2"
+        if (month == 7 and day >= 5) or month in (8, 9) or (month == 10 and day <= 3):
+            return "Term 3"
+        if (month == 10 and day >= 4) or month in (11, 12):
+            return "Term 4"
+    except Exception:
+        pass
+    return None
+
+
 def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
-    """Return upcoming + overdue assignments with submission status."""
+    """Return upcoming + overdue assignments with submission status and term label."""
     if not _has_canvas():
         return []
 
@@ -227,6 +257,30 @@ def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
     assignments: list[dict] = []
     try:
         with CanvasClient(settings.canvas_base_url, settings.canvas_api_token) as c:
+            # Build assignment group id → term map
+            group_term: dict[int, str] = {}
+            try:
+                for g in c.list_assignment_groups(int(course_id)):
+                    t = _extract_term(g.get("name", ""))
+                    if t:
+                        group_term[int(g["id"])] = t
+            except Exception:
+                pass
+
+            # Build module item content_id → module term map
+            module_term: dict[int, str] = {}
+            try:
+                for mod in c.list_modules(int(course_id)):
+                    t = _extract_term(mod.get("name", ""))
+                    if t:
+                        for item in c.list_module_items(int(course_id), mod["id"]):
+                            if item.get("type") in ("Assignment", "Quiz"):
+                                cid = item.get("content_id")
+                                if cid:
+                                    module_term[int(cid)] = t
+            except Exception:
+                pass
+
             for bucket in ("upcoming", "past"):
                 for a in c.list_assignments(int(course_id), bucket=bucket):
                     try:
@@ -237,6 +291,13 @@ def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
 
                     overdue = _is_overdue(a.get("due_at")) and not submitted
                     if bucket == "upcoming" or (bucket == "past" and not submitted):
+                        # Determine term: group name → module name → due date fallback
+                        group_id = a.get("assignment_group_id")
+                        term = (
+                            (group_id and group_term.get(int(group_id)))
+                            or module_term.get(int(a["id"]))
+                            or _term_from_due_date(a.get("due_at"))
+                        )
                         assignments.append({
                             "id": a["id"],
                             "name": a.get("name", "Unnamed"),
@@ -245,6 +306,8 @@ def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
                             "overdue": overdue,
                             "submitted": submitted,
                             "points_possible": a.get("points_possible"),
+                            "term": term,
+                            "assignment_group": a.get("assignment_group_id"),
                         })
     except Exception as e:
         log.warning("_fetch_assignments error: %s", e)
@@ -293,13 +356,15 @@ def build_student_context(session: LTISession) -> str:
         if upcoming:
             lines.append("UPCOMING ASSIGNMENTS (not yet submitted):")
             for a in upcoming:
-                lines.append(f"  • {a['name']} — due {a['due_friendly']}")
+                term_label = f" [{a['term']}]" if a.get("term") else ""
+                lines.append(f"  • {a['name']}{term_label} — due {a['due_friendly']}")
             lines.append("")
 
         if overdue:
             lines.append("OVERDUE / MISSING WORK:")
             for a in overdue:
-                lines.append(f"  • {a['name']} — was due {a['due_friendly']}")
+                term_label = f" [{a['term']}]" if a.get("term") else ""
+                lines.append(f"  • {a['name']}{term_label} — was due {a['due_friendly']}")
             lines.append("")
 
         if not upcoming and not overdue:
