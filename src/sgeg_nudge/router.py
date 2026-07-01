@@ -293,14 +293,14 @@ def _course_picker(lti_session, prompt: str) -> RouterResponse:
 
 
 def handle_due_dates(lti_session, grade_level: int | None) -> RouterResponse:
-    """Fetch upcoming assignments across all enrolled courses."""
+    """Fetch all unsubmitted assignments across all enrolled courses using bulk submission check."""
     from .canvas import CanvasClient
     from .config import settings
     from .student_context import _friendly, _is_overdue
     import re
 
-    user_id  = str(lti_session.user_id or "")
-    cids     = _enrolled_ids(lti_session)
+    user_id = str(lti_session.user_id or "")
+    cids    = _enrolled_ids(lti_session)
 
     if not cids:
         return RouterResponse(text="Which course is this for? Tap one of the options below.", components=[])
@@ -312,33 +312,49 @@ def handle_due_dates(lti_session, grade_level: int | None) -> RouterResponse:
         resp.from_cache = True  # type: ignore[union-attr]
         return resp  # type: ignore[return-value]
 
+    numeric_uid = bool(re.match(r"^\d+$", user_id))
     items: list[dict] = []
-    numeric_uid = re.match(r"^\d+$", user_id)
 
     try:
         with CanvasClient(settings.canvas_base_url, settings.canvas_api_token) as c:
             for course_id in cids:
-                for bucket in ("upcoming", "past"):
-                    try:
-                        for a in c.list_assignments(int(course_id), bucket=bucket):
-                            submitted = False
-                            if numeric_uid:
-                                try:
-                                    sub = c.get_submission(int(course_id), int(a["id"]), int(user_id))
-                                    submitted = bool(sub and sub.get("submitted_at"))
-                                except Exception:
-                                    pass
-                            overdue = _is_overdue(a.get("due_at")) and not submitted
-                            if bucket == "upcoming" or (bucket == "past" and not submitted):
-                                items.append({
-                                    "name": a.get("name", "Assignment"),
-                                    "due_friendly": _friendly(a.get("due_at")),
-                                    "status": "submitted" if submitted else ("overdue" if overdue else "upcoming"),
-                                    "points_possible": a.get("points_possible"),
-                                    "url": a.get("html_url", ""),
-                                })
-                    except Exception as exc:
-                        log.warning("handle_due_dates course=%s bucket=%s: %s", course_id, bucket, exc)
+                try:
+                    all_assignments = c.list_assignments(int(course_id))
+
+                    # Bulk submission fetch — one call per course, not per assignment
+                    submission_map: dict[int, dict] = {}
+                    if numeric_uid:
+                        try:
+                            for sub in c.get_student_submissions_bulk(int(course_id), int(user_id)):
+                                aid = sub.get("assignment_id")
+                                if aid is not None:
+                                    submission_map[int(aid)] = sub
+                        except Exception as e:
+                            log.warning("bulk submissions course=%s: %s", course_id, e)
+
+                    for a in all_assignments:
+                        aid = int(a["id"])
+                        sub = submission_map.get(aid, {})
+                        excused   = bool(sub.get("excused"))
+                        submitted = bool(sub.get("submitted_at"))
+                        canvas_missing = bool(sub.get("missing"))
+
+                        if submitted or excused:
+                            continue
+
+                        past_due = _is_overdue(a.get("due_at"))
+                        overdue  = past_due or canvas_missing
+
+                        items.append({
+                            "name": a.get("name", "Assignment"),
+                            "due_friendly": _friendly(a.get("due_at")),
+                            "status": "overdue" if overdue else "upcoming",
+                            "points_possible": a.get("points_possible"),
+                            "url": a.get("html_url", ""),
+                        })
+                except Exception as exc:
+                    log.warning("handle_due_dates course=%s: %s", course_id, exc)
+
     except Exception as exc:
         log.warning("handle_due_dates error: %s", exc)
         return RouterResponse(text="I couldn't load your assignments right now. Please try again.")
@@ -346,22 +362,25 @@ def handle_due_dates(lti_session, grade_level: int | None) -> RouterResponse:
     seen: set[str] = set()
     unique = [i for i in items if not (i["name"] in seen or seen.add(i["name"]))]  # type: ignore[func-returns-value]
 
-    components = [{"type": "assignment_list", "title": "Your Assignments", "items": unique[:20]}] if unique else []
-
     overdue_count  = sum(1 for i in unique if i["status"] == "overdue")
-    upcoming_count = sum(1 for i in unique if i["status"] == "upcoming")
+    unsubmitted_count = sum(1 for i in unique if i["status"] == "upcoming")
+    total = len(unique)
+
+    components = [{"type": "assignment_list", "title": "Your Assignments", "items": unique[:50]}] if unique else []
 
     if not unique:
-        text = "You're all caught up — no outstanding assignments right now! ✅"
+        text = "All your assignments are submitted — nothing outstanding right now."
     elif grade_level is not None and grade_level <= 3:
-        text = f"You have {len(unique)} thing{'s' if len(unique) != 1 else ''} to do! 📝"
-    elif overdue_count:
+        text = f"You have {total} thing{'s' if total != 1 else ''} to do! 📝"
+    elif overdue_count and unsubmitted_count:
         text = (
             f"You have {overdue_count} overdue assignment{'s' if overdue_count != 1 else ''} "
-            f"and {upcoming_count} coming up. Let's look at those overdue ones first."
+            f"and {unsubmitted_count} not yet submitted. Let's look at the overdue ones first."
         )
+    elif overdue_count:
+        text = f"You have {overdue_count} overdue assignment{'s' if overdue_count != 1 else ''} that still need to be submitted."
     else:
-        text = f"You have {upcoming_count} upcoming assignment{'s' if upcoming_count != 1 else ''}."
+        text = f"You have {unsubmitted_count} assignment{'s' if unsubmitted_count != 1 else ''} not yet submitted."
 
     result = RouterResponse(text=text, components=components)
     _cache_set(cache_key, result, "due_dates")
