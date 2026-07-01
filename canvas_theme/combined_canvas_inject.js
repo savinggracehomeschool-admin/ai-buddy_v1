@@ -1060,7 +1060,8 @@
     // Open links from inside the chat iframe — window.open from Canvas context
     // is never blocked by browsers, unlike window.open from inside an iframe.
     if (e.data.type === 'AIBUDDY_OPEN_URL' && e.data.url) {
-      window.open(e.data.url, '_blank', 'noopener,noreferrer');
+      var safeUrl = String(e.data.url);
+      if (/^https:\/\//.test(safeUrl)) window.open(safeUrl, '_blank', 'noopener,noreferrer');
     }
   });
 
