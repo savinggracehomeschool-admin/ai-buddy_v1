@@ -179,6 +179,22 @@ def _extract_grade_level(course_title: str | None) -> int | None:
 
 # ── Enrollment fetch ──────────────────────────────────────────────────────────
 
+# Course names matching these keywords are excluded from enrolled_course_ids.
+# Add more patterns here as needed (case-insensitive substring match).
+_ADMIN_COURSE_PATTERNS = (
+    "administration",
+    "onboarding",
+    "admin file",
+    "staff resource",
+    "teacher resource",
+)
+
+
+def _is_admin_course(name: str) -> bool:
+    low = (name or "").lower()
+    return any(p in low for p in _ADMIN_COURSE_PATTERNS)
+
+
 def _fetch_enrollment_scope(user_id: str) -> tuple[list[str], list[int], int | None]:
     """Fetch enrolled course IDs, unique sub-account IDs, and launch-account ID.
 
@@ -206,14 +222,17 @@ def _fetch_enrollment_scope(user_id: str) -> tuple[list[str], list[int], int | N
                 cid = enr.get("course_id")
                 if not cid:
                     continue
-                course_ids.append(str(cid))
                 try:
                     course = c.get_course(int(cid))
+                    if _is_admin_course(course.get("name", "")):
+                        _log.info("Excluding admin/onboarding course %s (%s)", cid, course.get("name"))
+                        continue
                     aid = course.get("account_id")
                     if aid:
                         account_ids.add(int(aid))
                 except Exception:
                     pass
+                course_ids.append(str(cid))
 
         return course_ids, list(account_ids), (list(account_ids)[0] if account_ids else None)
 
