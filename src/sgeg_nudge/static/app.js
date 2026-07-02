@@ -25,6 +25,25 @@
   const escalateMsg   = document.getElementById("escalate-msg");
   const btnEscalate   = document.getElementById("btn-escalate");
 
+  const ICONS = {
+    ai:          `<svg viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="22" cy="22" r="21" fill="#0A2240"/><rect x="8" y="10" width="28" height="6" rx="3" fill="#007A87"/><circle cx="16" cy="24" r="3" fill="#F59E0B"/><circle cx="28" cy="24" r="3" fill="#F59E0B"/><path d="M14 32 Q22 37 30 32" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/></svg>`,
+    grades:      `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2.5" y="10" width="4" height="7" rx="1" fill="#007A87"/><rect x="8" y="6" width="4" height="11" rx="1" fill="#007A87"/><rect x="13.5" y="3" width="4" height="14" rx="1" fill="#0A2240"/></svg>`,
+    assignments: `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="2" width="14" height="16" rx="2" stroke="#0A2240" stroke-width="1.3" fill="none"/><path d="M7 7h7M7 11h7M7 15h4" stroke="#0A2240" stroke-width="1.1" stroke-linecap="round"/><circle cx="5" cy="7" r="1" fill="#007A87"/><circle cx="5" cy="11" r="1" fill="#007A87"/><circle cx="5" cy="15" r="1" fill="#007A87"/></svg>`,
+    folder:      `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 7a2 2 0 012-2h3.17a2 2 0 011.42.59l.82.82A2 2 0 0010.83 7H16a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V7z" fill="#007A87" opacity=".9"/></svg>`,
+    search:      `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8.5" cy="8.5" r="5.5" stroke="#0A2240" stroke-width="1.4"/><path d="M13.5 13.5L17 17" stroke="#0A2240" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+    books:       `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="4" width="8" height="12" rx="1.5" fill="#007A87"/><rect x="7" y="3" width="9" height="13" rx="1.5" fill="#0A2240"/><path d="M10 6h4M10 9h4M10 12h3" stroke="white" stroke-width="1" stroke-linecap="round"/></svg>`,
+    warning:     `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.104 3.5L2.5 15.5h15L10.896 3.5a1 1 0 00-1.792 0z" fill="#EF4444"/><path d="M10 8v3.5M10 13.5h.01" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+    clock:       `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="7.5" stroke="#F59E0B" stroke-width="1.5"/><path d="M10 5.5v5l3 2" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    check:       `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" fill="#10B981"/><path d="M6 10l3 3 5-5.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    doc:         `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 2h7l4 4v12a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="#6B7280" stroke-width="1.3" fill="none"/><path d="M12 2v4h4" stroke="#6B7280" stroke-width="1.3"/><path d="M7 9h6M7 12h6M7 15h4" stroke="#6B7280" stroke-width="1.2" stroke-linecap="round"/></svg>`,
+    page:        `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="2" width="12" height="16" rx="1.5" stroke="#0A2240" stroke-width="1.3" fill="none"/><path d="M7 7h6M7 10h6M7 13h4" stroke="#0A2240" stroke-width="1.1" stroke-linecap="round"/></svg>`,
+    quiz:        `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="2" width="14" height="16" rx="2" stroke="#0A2240" stroke-width="1.3" fill="none"/><path d="M8 7.5a2 2 0 114 0c0 1.5-2 2-2 3.5" stroke="#0A2240" stroke-width="1.3" stroke-linecap="round"/><circle cx="10" cy="14.5" r=".75" fill="#0A2240"/></svg>`,
+    chat:        `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 4h14a1 1 0 011 1v8a1 1 0 01-1 1H6l-4 3V5a1 1 0 011-1z" stroke="#0A2240" stroke-width="1.3" fill="none"/></svg>`,
+    link:        `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 4H5a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0 002-2v-4" stroke="#0A2240" stroke-width="1.3" stroke-linecap="round"/><path d="M13 3h4v4M11 9l6-6" stroke="#0A2240" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    tool:        `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 2.5a3.5 3.5 0 00-3.36 4.43L3.5 14.5a1 1 0 000 1.41l.59.59a1 1 0 001.41 0l7.57-7.64A3.5 3.5 0 1014.5 2.5z" stroke="#0A2240" stroke-width="1.3" fill="none"/></svg>`,
+    raise:       `<svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 2v7M7 4v5M4 6v3M13 4v5M16 6v3" stroke="#B91C1C" stroke-width="1.4" stroke-linecap="round"/><rect x="3" y="11" width="14" height="4" rx="1.5" fill="#B91C1C"/></svg>`,
+  };
+
   let isWaiting    = false;
   let userInitials = "?";
 
@@ -148,7 +167,7 @@
       icon.textContent = userInitials;
     } else {
       icon.className = "msg-icon msg-icon-ai";
-      icon.textContent = "🤖";
+      icon.innerHTML = ICONS.ai;
     }
 
     const bubble = document.createElement("div");
@@ -168,7 +187,7 @@
     row.className = "msg-row assistant";
     row.id = "typing-indicator";
     row.innerHTML = `
-      <div class="msg-icon" aria-hidden="true">🤖</div>
+      <div class="msg-icon msg-icon-ai" aria-hidden="true">${ICONS.ai}</div>
       <div class="typing-bubble" aria-label="AI Buddy is thinking">
         <div class="typing-dots"><span></span><span></span><span></span></div>
       </div>`;
@@ -206,7 +225,7 @@
   function buildCoursePicker(c) {
     const card = make("div", "comp-card");
     const head = make("div", "comp-head");
-    head.innerHTML = `<span class="comp-head-icon">📚</span><span class="comp-head-title">Your courses</span>`;
+    head.innerHTML = `<span class="comp-head-icon">${ICONS.books}</span><span class="comp-head-title">Your courses</span>`;
     card.appendChild(head);
 
     const grid = make("div", "comp-btn-grid");
@@ -214,7 +233,7 @@
       const btn = document.createElement("button");
       btn.className = "comp-btn";
       btn.setAttribute("type", "button");
-      btn.innerHTML = `<span class="btn-icon">📘</span><span>${escHtml(course.name || course.id)}</span>`;
+      btn.innerHTML = `<span class="btn-icon">${ICONS.books}</span><span>${escHtml(course.name || course.id)}</span>`;
       btn.addEventListener("click", () => {
         // Send a follow-up message that includes the chosen course name —
         // the router / Claude will resolve it and set context
@@ -235,7 +254,7 @@
 
     const head = make("div", "comp-head");
     head.innerHTML = `
-      <span class="comp-head-icon">📊</span>
+      <span class="comp-head-icon">${ICONS.grades}</span>
       <span class="comp-head-title">${escHtml(c.course_name || "Course")}</span>
       ${c.course_url ? `<a class="comp-head-link" href="${escHtml(c.course_url)}" target="_blank" rel="noopener">View grades ↗</a>` : ""}`;
     card.appendChild(head);
@@ -271,7 +290,7 @@
     const card  = make("div", "comp-card");
     const head  = make("div", "comp-head");
     head.innerHTML = `
-      <span class="comp-head-icon">📝</span>
+      <span class="comp-head-icon">${ICONS.assignments}</span>
       <span class="comp-head-title">${escHtml(c.title || "Assignments")}</span>`;
     card.appendChild(head);
 
@@ -279,16 +298,16 @@
     if (!items.length) {
       const p = make("p", "comp-more");
       p.style.padding = "10px 13px";
-      p.textContent = "Nothing here right now ✅";
+      p.textContent = "Nothing here right now";
       card.appendChild(p);
       return card;
     }
 
     const list = make("ul", "comp-assign-list");
-    const STATUS_ICON = { submitted: "✅", upcoming: "🕐", overdue: "⚠️" };
+    const STATUS_ICON = { submitted: ICONS.check, upcoming: ICONS.clock, overdue: ICONS.warning };
 
     items.forEach(item => {
-      const icon = STATUS_ICON[item.status] || "📄";
+      const icon = STATUS_ICON[item.status] || ICONS.doc;
       const pts  = item.points_possible ? `${item.points_possible} pts` : "";
       const li   = document.createElement("li");
       const inner = `
@@ -318,9 +337,9 @@
 
   // ── Single assignment card ─────────────────────────────────────────────────
   function buildAssignmentCard(c) {
-    const STATUS_ICON  = { overdue: "⚠️", upcoming: "🕐", submitted: "✅" };
+    const STATUS_ICON  = { overdue: ICONS.warning, upcoming: ICONS.clock, submitted: ICONS.check };
     const STATUS_LABEL = { overdue: "Overdue", upcoming: "Not yet submitted", submitted: "Submitted" };
-    const icon  = STATUS_ICON[c.status]  || "📄";
+    const icon  = STATUS_ICON[c.status]  || ICONS.doc;
     const label = STATUS_LABEL[c.status] || "";
     const pts   = c.points_possible ? `${c.points_possible} pts` : "";
 
@@ -352,7 +371,7 @@
     const card = make("div", "comp-card");
     const head = make("div", "comp-head");
     head.innerHTML = `
-      <span class="comp-head-icon">📁</span>
+      <span class="comp-head-icon">${ICONS.folder}</span>
       <span class="comp-head-title">${escHtml(c.module_name || "Module")}</span>`;
     card.appendChild(head);
 
@@ -365,8 +384,10 @@
       return card;
     }
 
-    const TYPE_ICON = { File:"📄", Assignment:"📝", Quiz:"📋", Page:"📖",
-                        Discussion:"💬", ExternalUrl:"🔗", ExternalTool:"🛠" };
+    const TYPE_ICON = {
+      File: ICONS.doc, Assignment: ICONS.assignments, Quiz: ICONS.quiz,
+      Page: ICONS.page, Discussion: ICONS.chat, ExternalUrl: ICONS.link, ExternalTool: ICONS.tool,
+    };
 
     // Phase 4: respect grade-level density from server (max_visible field)
     const maxVisible = c.max_visible || 8;
@@ -375,7 +396,7 @@
     const hidden  = items.slice(maxVisible);
 
     function addButton(item) {
-      const icon = TYPE_ICON[item.type] || "📄";
+      const icon = TYPE_ICON[item.type] || ICONS.doc;
       if (item.url) {
         const a = document.createElement("a");
         a.className = "comp-btn";
@@ -412,11 +433,13 @@
 
   // ── Content search results (knowledge base) ───────────────────────────────
   function buildContentSearchResults(c) {
-    const TYPE_ICON = { File:"📄", Assignment:"📝", Quiz:"📋", Page:"📖",
-                        Discussion:"💬", ExternalUrl:"🔗", ExternalTool:"🛠" };
+    const TYPE_ICON = {
+      File: ICONS.doc, Assignment: ICONS.assignments, Quiz: ICONS.quiz,
+      Page: ICONS.page, Discussion: ICONS.chat, ExternalUrl: ICONS.link, ExternalTool: ICONS.tool,
+    };
     const card = make("div", "comp-card");
     const head = make("div", "comp-head");
-    head.innerHTML = `<span class="comp-head-icon">🔍</span>
+    head.innerHTML = `<span class="comp-head-icon">${ICONS.search}</span>
       <span class="comp-head-title">Results for "${escHtml(c.query || "")}"</span>`;
     card.appendChild(head);
 
@@ -431,7 +454,7 @@
 
     const grid = make("div", "comp-btn-grid");
     items.forEach(item => {
-      const icon = item.icon || TYPE_ICON[item.type] || "📄";
+      const icon = item.icon || TYPE_ICON[item.type] || ICONS.doc;
       const el = document.createElement(item.url ? "a" : "button");
       el.className = "comp-btn";
       if (item.url) {
@@ -482,13 +505,13 @@
         sheet.id = "action-sheet";
         sheet.className = "action-sheet";
         [
-          ["📊 My grades",    "What are my grades?"],
-          ["📝 Assignments",  "What assignments do I have coming up?"],
-          ["📁 Course content","Show me the course modules and lessons."],
+          [`<span class="sheet-icon">${ICONS.grades}</span> My grades`,       "What are my grades?"],
+          [`<span class="sheet-icon">${ICONS.assignments}</span> Assignments`, "What assignments do I have coming up?"],
+          [`<span class="sheet-icon">${ICONS.folder}</span> Course content`,  "Show me the course modules and lessons."],
         ].forEach(([label, msg]) => {
           const btn = document.createElement("button");
           btn.className = "action-sheet-btn";
-          btn.textContent = label;
+          btn.innerHTML = label;
           btn.addEventListener("click", () => { sheet.remove(); sendMessage(msg); });
           sheet.appendChild(btn);
         });
@@ -589,25 +612,15 @@
     }
   });
 
-  // ── DEBUG: trace every link click ─────────────────────────────────────────
   document.addEventListener("click", function(e) {
     var a = e.target.closest("a[href]");
-    console.log("[AB-DEBUG] click fired | target:", e.target.tagName, e.target.className,
-                "| closest a:", a ? a.href : "none");
     if (!a) return;
     var href = a.href;
-    if (!href || !/^https:\/\//.test(href)) {
-      console.log("[AB-DEBUG] skipped — not an https link:", href);
-      return;
-    }
-    console.log("[AB-DEBUG] intercepting link →", href);
+    if (!href || !/^https:\/\//.test(href)) return;
     e.preventDefault();
     e.stopPropagation();
-    var win = window.open(href, "_blank");
-    console.log("[AB-DEBUG] window.open returned:", win,
-                "| window.parent is window:", window.parent === window);
+    window.open(href, "_blank");
   }, true);
-  // ── END DEBUG ──────────────────────────────────────────────────────────────
 
 
 

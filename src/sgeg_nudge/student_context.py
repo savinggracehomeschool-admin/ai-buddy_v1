@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 # Max chars of page/assignment body to include in context — keeps prompt lean
 _MAX_PAGE_CHARS = 1500
 _MAX_ASSIGN_DESC_CHARS = 600
-_MAX_MODULES = 10       # modules to include
+_MAX_MODULES = 30       # modules to include
 _MAX_ITEMS_PER_MODULE = 15
 _MAX_PAGES_FETCHED = 5  # how many page bodies to fetch inline
 
@@ -221,7 +221,7 @@ def _extract_term(text: str | None) -> str | None:
     """Extract a term label from a group/module name e.g. 'Term 2 Assignments' → 'Term 2'."""
     if not text:
         return None
-    m = re.search(r'\bterm\s*([1-4])\b', text, re.IGNORECASE)
+    m = re.search(r'\b(?:term|kwartaal)\s*([1-4])\b', text, re.IGNORECASE)
     if m:
         return f"Term {m.group(1)}"
     return None

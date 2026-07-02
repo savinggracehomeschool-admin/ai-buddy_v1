@@ -29,8 +29,8 @@ __pycache__
 .vscode
 *.log
 
-# Docs / scripts not needed at runtime
-docs/
+# Docs — exclude dev notes, but keep prompt templates needed at runtime
+docs/notes.md
 SESSION-NOTES.md
 build-copilot-prompt.md.docx
 canvas_theme/
