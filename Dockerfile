@@ -23,6 +23,7 @@ RUN addgroup --system sgeg && adduser --system --ingroup sgeg sgeg
 COPY --from=builder /app/.venv /app/.venv
 
 COPY src/ ./src/
+COPY docs/ ./docs/
 
 RUN mkdir -p /data && chown sgeg:sgeg /data
 

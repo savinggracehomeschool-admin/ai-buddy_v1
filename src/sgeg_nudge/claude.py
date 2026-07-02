@@ -689,6 +689,11 @@ _CHAT_PROMPT_CACHE: str | None = None
 def _load_chat_prompt_template() -> str:
     global _CHAT_PROMPT_CACHE
     if _CHAT_PROMPT_CACHE is None:
+        if not CHAT_PROMPT_PATH.exists():
+            raise FileNotFoundError(
+                f"System prompt missing from container: {CHAT_PROMPT_PATH}. "
+                "Add 'COPY docs/ ./docs/' to the Dockerfile."
+            )
         _CHAT_PROMPT_CACHE = CHAT_PROMPT_PATH.read_text(encoding="utf-8")
     return _CHAT_PROMPT_CACHE
 
