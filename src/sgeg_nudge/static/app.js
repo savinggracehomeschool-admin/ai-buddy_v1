@@ -557,19 +557,25 @@
     }
   });
 
-  // Prevent any external link from navigating the chat iframe.
-  // window.open() without a features string opens as a tab (not a popup),
-  // so it is NOT treated as a popup window and is never blocked.
-  // Called synchronously during the user gesture — user activation is intact.
+  // ── DEBUG: trace every link click ─────────────────────────────────────────
   document.addEventListener("click", function(e) {
     var a = e.target.closest("a[href]");
+    console.log("[AB-DEBUG] click fired | target:", e.target.tagName, e.target.className,
+                "| closest a:", a ? a.href : "none");
     if (!a) return;
     var href = a.href;
-    if (!href || !/^https:\/\//.test(href)) return;
+    if (!href || !/^https:\/\//.test(href)) {
+      console.log("[AB-DEBUG] skipped — not an https link:", href);
+      return;
+    }
+    console.log("[AB-DEBUG] intercepting link →", href);
     e.preventDefault();
     e.stopPropagation();
-    window.open(href, "_blank");
+    var win = window.open(href, "_blank");
+    console.log("[AB-DEBUG] window.open returned:", win,
+                "| window.parent is window:", window.parent === window);
   }, true);
+  // ── END DEBUG ──────────────────────────────────────────────────────────────
 
 
 
