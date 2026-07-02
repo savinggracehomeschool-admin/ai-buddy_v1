@@ -357,7 +357,14 @@ def handle_due_dates(lti_session, grade_level: int | None) -> RouterResponse:
     unsubmitted_count = sum(1 for i in unique if i["status"] == "upcoming")
     total = len(unique)
 
-    components = [{"type": "assignment_list", "title": "Your Assignments", "items": unique[:50]}] if unique else []
+    # One card per assignment — overdue first, then upcoming
+    overdue_items   = [i for i in unique if i["status"] == "overdue"]
+    upcoming_items  = [i for i in unique if i["status"] == "upcoming"]
+    ordered = overdue_items + upcoming_items
+    components = [
+        {"type": "assignment_card", **item}
+        for item in ordered[:50]
+    ]
 
     if not unique:
         text = "All your assignments are submitted — nothing outstanding right now."

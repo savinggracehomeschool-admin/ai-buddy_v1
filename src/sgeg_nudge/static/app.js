@@ -190,6 +190,7 @@
     components.forEach(c => {
       let el = null;
       if      (c.type === "grades_card")           el = buildGradesCard(c);
+      else if (c.type === "assignment_card")        el = buildAssignmentCard(c);
       else if (c.type === "assignment_list")        el = buildAssignmentList(c);
       else if (c.type === "module_section")         el = buildModuleSection(c);
       else if (c.type === "course_picker")          el = buildCoursePicker(c);
@@ -312,6 +313,37 @@
       list.appendChild(li);
     });
     card.appendChild(list);
+    return card;
+  }
+
+  // ── Single assignment card ─────────────────────────────────────────────────
+  function buildAssignmentCard(c) {
+    const STATUS_ICON  = { overdue: "⚠️", upcoming: "🕐", submitted: "✅" };
+    const STATUS_LABEL = { overdue: "Overdue", upcoming: "Not yet submitted", submitted: "Submitted" };
+    const icon  = STATUS_ICON[c.status]  || "📄";
+    const label = STATUS_LABEL[c.status] || "";
+    const pts   = c.points_possible ? `${c.points_possible} pts` : "";
+
+    const card = make("div", `asgn-card asgn-${c.status || "upcoming"}`);
+    card.innerHTML = `
+      <div class="asgn-top">
+        <span class="asgn-icon">${icon}</span>
+        <span class="asgn-name">${escHtml(c.name || "Assignment")}</span>
+      </div>
+      <div class="asgn-meta">
+        ${label ? `<span class="asgn-status-label">${escHtml(label)}</span>` : ""}
+        ${c.due_friendly ? `<span class="asgn-due">${escHtml(c.due_friendly)}</span>` : ""}
+        ${pts ? `<span class="asgn-pts">${escHtml(pts)}</span>` : ""}
+      </div>
+      ${c.url ? `<a class="asgn-open" href="${escHtml(c.url)}" target="_blank" rel="noopener noreferrer">Open in Canvas ↗</a>` : ""}`;
+
+    if (c.url) {
+      card.style.cursor = "pointer";
+      card.addEventListener("click", e => {
+        if (e.target.closest("a")) return;
+        window.open(c.url, "_blank");
+      });
+    }
     return card;
   }
 

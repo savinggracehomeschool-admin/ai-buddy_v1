@@ -270,6 +270,52 @@ body {
 .comp-assign-item.submitted .comp-assign-name { color: var(--text-secondary); }
 .comp-assign-pts { font-size: 0.72rem; color: var(--text-secondary); white-space: nowrap; }
 
+/* ── Individual assignment card ─────────────────────────────────────────────── */
+.asgn-card {
+  background: #fff;
+  border: 1.5px solid var(--brand-border);
+  border-radius: 11px;
+  padding: 11px 13px 10px;
+  margin-bottom: 6px;
+  cursor: default;
+  transition: box-shadow .12s;
+}
+.asgn-card:hover { box-shadow: 0 2px 8px rgba(10,34,64,.08); }
+.asgn-card.asgn-overdue  { border-left: 3.5px solid #EF4444; }
+.asgn-card.asgn-upcoming { border-left: 3.5px solid #F59E0B; }
+.asgn-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+.asgn-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+.asgn-name { font-size: 0.84rem; font-weight: 600; color: var(--text-primary); line-height: 1.4; word-break: break-word; }
+.asgn-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+  margin-left: 23px;
+}
+.asgn-status-label { font-size: 0.72rem; font-weight: 600; color: #B45309; }
+.asgn-card.asgn-overdue .asgn-status-label { color: #B91C1C; }
+.asgn-due { font-size: 0.72rem; color: var(--text-secondary); }
+.asgn-pts { font-size: 0.72rem; color: var(--text-secondary); }
+.asgn-open {
+  display: inline-block;
+  margin-left: 23px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--brand);
+  text-decoration: none;
+  border: 1.5px solid var(--brand);
+  border-radius: 6px;
+  padding: 3px 10px;
+}
+.asgn-open:hover { background: var(--brand); color: #fff; }
+
 /* Module buttons */
 .comp-btn-grid {
   padding: 10px 11px;

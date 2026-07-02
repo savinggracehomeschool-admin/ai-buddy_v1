@@ -528,18 +528,10 @@ def _run_canvas_tool(
                 "url": f"{settings.canvas_base_url}/courses/{course_id}/assignments/{aid}",
             })
 
-        title_map = {
-            "missing": "Missing / Overdue Work",
-            "upcoming": "Upcoming Work",
-            "past": "Past Assignments",
-        }
-        component = {
-            "type": "assignment_list",
-            "title": title_map.get(bucket, "Assignments"),
-            "course_id": course_id,
-            "items": items,
-        }
-        return {"assignments": items, "total": len(items)}, [component] if items else []
+        # One card per assignment — overdue first, then upcoming
+        ordered = sorted(items, key=lambda x: (x["status"] != "overdue",))
+        components = [{"type": "assignment_card", **item} for item in ordered[:50]]
+        return {"assignments": items, "total": len(items)}, components
 
     # ── get_course_modules ────────────────────────────────────────────────────
     if tool_name == "get_course_modules":
