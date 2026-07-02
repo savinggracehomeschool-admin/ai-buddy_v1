@@ -248,16 +248,12 @@ def _term_from_due_date(due_at: str | None) -> str | None:
 
 
 def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
-    """Return all assignments for a course with accurate per-student submission status.
+    """Return unsubmitted assignments using Canvas Analytics API.
 
-    Strategy:
-    1. Fetch every assignment in the course (one paginated call).
-    2. Fetch every submission for this student in the course in bulk (one paginated
-       call to /courses/:id/students/submissions). This is the authoritative record —
-       no N+1 per-assignment checks, no silent failures.
-    3. Cross-reference: an assignment is outstanding if its due date has passed and
-       the student has not submitted (submitted_at is null) and it is not excused.
-    4. Upcoming = due in the future and not yet submitted.
+    Uses /courses/:id/analytics/users/:uid/assignments — Canvas's own per-student
+    report. Only published assignments appear here; unpublished are silently excluded.
+    Canvas status values: on_time|late|missing|unsubmitted|floating|excused
+      floating = no due date and not submitted (e.g. Cambridge exam papers)
     """
     if not _has_canvas():
         return []
@@ -268,7 +264,7 @@ def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
     try:
         with CanvasClient(settings.canvas_base_url, settings.canvas_api_token) as c:
 
-            # ── Term context maps ─────────────────────────────────────────────
+            # Term context from assignment groups (still useful for labelling)
             group_term: dict[int, str] = {}
             try:
                 for g in c.list_assignment_groups(int(course_id)):
@@ -278,77 +274,36 @@ def _fetch_assignments(canvas_user_id: str, course_id: str) -> list[dict]:
             except Exception:
                 pass
 
-            module_term: dict[int, str] = {}
-            try:
-                for mod in c.list_modules(int(course_id)):
-                    t = _extract_term(mod.get("name", ""))
-                    if t:
-                        for item in c.list_module_items(int(course_id), mod["id"]):
-                            if item.get("type") in ("Assignment", "Quiz"):
-                                cid = item.get("content_id")
-                                if cid:
-                                    module_term[int(cid)] = t
-            except Exception:
-                pass
+            analytics = c.get_student_assignment_analytics(int(course_id), int(canvas_user_id))
 
-            # ── Step 1: all assignments ───────────────────────────────────────
-            all_assignments = c.list_assignments(int(course_id))
+            for a in analytics:
+                canvas_status = a.get("status", "")
+                excused = bool(a.get("excused"))
 
-            # ── Step 2: all submissions for this student (bulk) ───────────────
-            submission_map: dict[int, dict] = {}
-            try:
-                for sub in c.get_student_submissions_bulk(int(course_id), int(canvas_user_id)):
-                    aid = sub.get("assignment_id")
-                    if aid is not None:
-                        submission_map[int(aid)] = sub
-            except Exception as e:
-                log.warning("bulk submission fetch failed, falling back: %s", e)
+                # Skip submitted (on_time / late), excused, and physical hand-ins
+                if canvas_status in ("on_time", "late") or excused:
+                    continue
+                if a.get("non_digital_submission"):
+                    continue
 
-            # ── Step 3: cross-reference ───────────────────────────────────────
-            now = datetime.now(timezone.utc)
-            for a in all_assignments:
-                aid = int(a["id"])
-                sub = submission_map.get(aid, {})
-
-                excused = bool(sub.get("excused"))
-                submitted_at = sub.get("submitted_at")
-                submitted = bool(submitted_at)
-                canvas_missing = bool(sub.get("missing"))  # Canvas's own flag
-                workflow = sub.get("workflow_state", "unsubmitted")
-
+                aid = a.get("assignment_id") or a.get("id")
                 due_at = a.get("due_at")
-                past_due = _is_overdue(due_at)
+                overdue = canvas_status == "missing"
 
-                # Outstanding = past due, not submitted, not excused
-                # Also trust Canvas's own `missing` flag as a fallback
-                overdue = (past_due and not submitted and not excused) or (canvas_missing and not excused)
-                # Upcoming = not yet submitted, not excused (includes assignments with no due date)
-                upcoming = not past_due and not submitted and not excused
-
-                if submitted or excused:
-                    continue  # done — skip
-
-                group_id = a.get("assignment_group_id")
-                term = (
-                    (group_id and group_term.get(int(group_id)))
-                    or module_term.get(aid)
-                    or _term_from_due_date(due_at)
-                )
+                term = group_term.get(aid) or _term_from_due_date(due_at)
 
                 assignments.append({
                     "id": aid,
-                    "name": a.get("name", "Unnamed"),
+                    "name": a.get("title", "Unnamed"),
                     "due_at": due_at,
                     "due_friendly": _friendly(due_at),
                     "overdue": overdue,
-                    "submitted": submitted,
-                    "excused": excused,
-                    "canvas_missing": canvas_missing,
-                    "workflow_state": workflow,
+                    "submitted": False,
+                    "excused": False,
+                    "canvas_status": canvas_status,
                     "points_possible": a.get("points_possible"),
                     "term": term,
-                    "assignment_group": group_id,
-                    "url": a.get("html_url", ""),
+                    "url": f"{settings.canvas_base_url}/courses/{course_id}/assignments/{aid}",
                 })
 
     except Exception as e:

@@ -293,16 +293,22 @@ def _course_picker(lti_session, prompt: str) -> RouterResponse:
 
 
 def handle_due_dates(lti_session, grade_level: int | None) -> RouterResponse:
-    """Fetch all unsubmitted assignments across all enrolled courses using bulk submission check."""
+    """Fetch unsubmitted assignments using Canvas Analytics API.
+
+    Uses /courses/:id/analytics/users/:uid/assignments which:
+    - Only returns PUBLISHED assignments (unpublished never appear)
+    - Provides Canvas's own status: missing|unsubmitted|floating|on_time|late|excused
+    - floating = no due date + not submitted (e.g. Cambridge exam papers)
+    """
     from .canvas import CanvasClient
     from .config import settings
-    from .student_context import _friendly, _is_overdue
+    from .student_context import _friendly
     import re
 
     user_id = str(lti_session.user_id or "")
     cids    = _enrolled_ids(lti_session)
 
-    if not cids:
+    if not cids or not re.match(r"^\d+$", user_id):
         return RouterResponse(text="Which course is this for? Tap one of the options below.", components=[])
 
     cache_key = _cache_key(user_id, "due_dates", ",".join(sorted(cids)))
@@ -312,48 +318,33 @@ def handle_due_dates(lti_session, grade_level: int | None) -> RouterResponse:
         resp.from_cache = True  # type: ignore[union-attr]
         return resp  # type: ignore[return-value]
 
-    numeric_uid = bool(re.match(r"^\d+$", user_id))
     items: list[dict] = []
 
     try:
         with CanvasClient(settings.canvas_base_url, settings.canvas_api_token) as c:
             for course_id in cids:
                 try:
-                    all_assignments = c.list_assignments(int(course_id))
-
-                    # Bulk submission fetch — one call per course, not per assignment
-                    submission_map: dict[int, dict] = {}
-                    if numeric_uid:
-                        try:
-                            for sub in c.get_student_submissions_bulk(int(course_id), int(user_id)):
-                                aid = sub.get("assignment_id")
-                                if aid is not None:
-                                    submission_map[int(aid)] = sub
-                        except Exception as e:
-                            log.warning("bulk submissions course=%s: %s", course_id, e)
-
-                    for a in all_assignments:
-                        aid = int(a["id"])
-                        sub = submission_map.get(aid, {})
-                        excused   = bool(sub.get("excused"))
-                        submitted = bool(sub.get("submitted_at"))
-                        canvas_missing = bool(sub.get("missing"))
-
-                        if submitted or excused:
+                    analytics = c.get_student_assignment_analytics(int(course_id), int(user_id))
+                    for a in analytics:
+                        status = a.get("status", "")
+                        # skip submitted (on_time/late) and excused
+                        if status in ("on_time", "late", "excused") or a.get("excused"):
+                            continue
+                        # skip non-digital submissions (physical hand-in, not trackable)
+                        if a.get("non_digital_submission"):
                             continue
 
-                        past_due = _is_overdue(a.get("due_at"))
-                        overdue  = past_due or canvas_missing
-
+                        aid = a.get("assignment_id") or a.get("id")
+                        our_status = "overdue" if status == "missing" else "upcoming"
                         items.append({
-                            "name": a.get("name", "Assignment"),
+                            "name": a.get("title", "Assignment"),
                             "due_friendly": _friendly(a.get("due_at")),
-                            "status": "overdue" if overdue else "upcoming",
+                            "status": our_status,
                             "points_possible": a.get("points_possible"),
-                            "url": a.get("html_url") or f"{settings.canvas_base_url}/courses/{course_id}/assignments/{a['id']}",
+                            "url": f"{settings.canvas_base_url}/courses/{course_id}/assignments/{aid}",
                         })
                 except Exception as exc:
-                    log.warning("handle_due_dates course=%s: %s", course_id, exc)
+                    log.warning("handle_due_dates analytics course=%s: %s", course_id, exc)
 
     except Exception as exc:
         log.warning("handle_due_dates error: %s", exc)
@@ -362,7 +353,7 @@ def handle_due_dates(lti_session, grade_level: int | None) -> RouterResponse:
     seen: set[str] = set()
     unique = [i for i in items if not (i["name"] in seen or seen.add(i["name"]))]  # type: ignore[func-returns-value]
 
-    overdue_count  = sum(1 for i in unique if i["status"] == "overdue")
+    overdue_count     = sum(1 for i in unique if i["status"] == "overdue")
     unsubmitted_count = sum(1 for i in unique if i["status"] == "upcoming")
     total = len(unique)
 
@@ -375,7 +366,7 @@ def handle_due_dates(lti_session, grade_level: int | None) -> RouterResponse:
     elif overdue_count and unsubmitted_count:
         text = (
             f"You have {overdue_count} overdue assignment{'s' if overdue_count != 1 else ''} "
-            f"and {unsubmitted_count} not yet submitted. Let's look at the overdue ones first."
+            f"and {unsubmitted_count} not yet submitted."
         )
     elif overdue_count:
         text = f"You have {overdue_count} overdue assignment{'s' if overdue_count != 1 else ''} that still need to be submitted."

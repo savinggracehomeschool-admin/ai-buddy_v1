@@ -291,6 +291,32 @@ class CanvasClient:
             },
         ))
 
+    def get_student_assignment_analytics(
+        self,
+        course_id: int | str,
+        user_id: int | str,
+    ) -> list[dict]:
+        """Return per-student assignment analytics from the Canvas Analytics API.
+
+        Endpoint: GET /courses/:id/analytics/users/:uid/assignments
+
+        Each record includes:
+          assignment_id, title, due_at, points_possible, excused, status, submission
+          status values: 'on_time'|'late'|'missing'|'unsubmitted'|'floating'|'excused'
+            floating  = no due date and not submitted (e.g. undated Cambridge papers)
+            missing   = past due, not submitted
+            unsubmitted = future due date, not submitted
+          submission.submitted_at  — None if not submitted
+          submission.score         — None if not graded
+
+        Only PUBLISHED assignments visible to the student are returned — unpublished
+        assignments never appear here, unlike the raw assignments list endpoint.
+        """
+        return list(self._paginate(
+            f"/api/v1/courses/{course_id}/analytics/users/{user_id}/assignments",
+            {"per_page": 100},
+        ))
+
     def get_submission(
         self,
         course_id: int,
