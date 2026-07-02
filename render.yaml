@@ -36,3 +36,8 @@ services:
         value: "false"
       - key: APP_URL
         value: "https://savinggraceeducationaicoach.co.za"
+      # SGEG Help Desk connection — escalated tickets open in JS Help Desk.
+      - key: TICKET_API_URL
+        value: "https://www.savinggraceeducation.co.za/wp-json/sgeg/v1/tickets"
+      - key: TICKET_API_KEY
+        sync: false   # set this secret in the AI-buddy Render dashboard = your SGEG connector key

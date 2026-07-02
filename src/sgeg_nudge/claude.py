@@ -574,30 +574,38 @@ def _run_canvas_tool(
             _tool_log.warning("get_course_modules failed: %s", e)
             return {"error": str(e)}, []
 
+        from .student_context import _extract_term as _et
+        base = settings.canvas_base_url.rstrip("/")
         mod_data: list[dict] = []
         components: list[dict] = []
-        for mod in modules[:10]:
-            try:
-                with CanvasClient(settings.canvas_base_url, settings.canvas_api_token) as c:
-                    raw_items = c.list_module_items(int(course_id), mod["id"])
-            except Exception:
-                raw_items = []
-            item_list = [
+
+        # Group by term so Claude sees clear term organisation
+        term_order: list[str] = []
+        term_groups: dict[str, list] = {}
+        for mod in modules:
+            term = _et(mod.get("name", "")) or "General"
+            if term not in term_groups:
+                term_groups[term] = []
+                term_order.append(term)
+            term_groups[term].append(mod)
+
+        for term_label in term_order:
+            term_items = [
                 {
-                    "title": it.get("title", ""),
-                    "type": it.get("type", ""),
-                    "url": it.get("html_url", ""),
+                    "title": m.get("name", ""),
+                    "type": "ExternalUrl",
+                    "url": f"{base}/courses/{course_id}/modules#{m['id']}",
                 }
-                for it in raw_items[:15]
+                for m in term_groups[term_label]
             ]
-            mod_data.append({"module": mod.get("name", ""), "items": item_list})
+            mod_data.append({"term": term_label, "weeks": [m.get("name", "") for m in term_groups[term_label]]})
             components.append({
                 "type": "module_section",
-                "module_name": mod.get("name", "Module"),
-                "module_id": str(mod.get("id", "")),
-                "items": item_list,
+                "module_name": term_label,
+                "module_id": term_label,
+                "items": term_items,
             })
-        return {"modules": mod_data}, components
+        return {"modules": mod_data, "terms": term_order}, components
 
     # ── search_canvas_content ─────────────────────────────────────────────────
     if tool_name == "search_canvas_content":

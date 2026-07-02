@@ -495,10 +495,13 @@ def _submit_ticket_to_external(
     import urllib.request
     import urllib.error
 
+    # Points at the SGEG Help Desk connector, which creates the ticket in JS Help Desk
+    # (the SGEG app then syncs it and the AI replies). Set both in .env.
     ticket_url = (
         os.getenv("TICKET_API_URL")
-        or "https://savinggraceeducationaicoach.co.za/api/mock-tickets/create"
+        or "https://www.savinggraceeducation.co.za/wp-json/sgeg/v1/tickets"
     )
+    ticket_key = os.getenv("TICKET_API_KEY", "")
 
     payload_bytes = json.dumps({
         "email": email,
@@ -509,10 +512,13 @@ def _submit_ticket_to_external(
         "urgency": urgency,
     }).encode()
 
+    headers = {"Content-Type": "application/json"}
+    if ticket_key:
+        headers["Authorization"] = f"Bearer {ticket_key}"
     req = urllib.request.Request(
         ticket_url,
         data=payload_bytes,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method="POST",
     )
     try:
