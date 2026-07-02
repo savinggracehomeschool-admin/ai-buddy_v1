@@ -366,19 +366,38 @@ def handle_due_dates(lti_session, grade_level: int | None) -> RouterResponse:
         for item in ordered[:50]
     ]
 
+    def _list_names(items_list: list[dict], limit: int = 25) -> str:
+        lines = []
+        for i in items_list[:limit]:
+            due = f" — due {i['due_friendly']}" if i.get("due_friendly") and i["due_friendly"] != "no due date" else ""
+            lines.append(f"• {i['name']}{due}")
+        if len(items_list) > limit:
+            lines.append(f"  …and {len(items_list) - limit} more")
+        return "\n".join(lines)
+
     if not unique:
         text = "All your assignments are submitted — nothing outstanding right now."
     elif grade_level is not None and grade_level <= 3:
-        text = f"You have {total} thing{'s' if total != 1 else ''} to do! 📝"
+        text = f"You have {total} thing{'s' if total != 1 else ''} to do!"
     elif overdue_count and unsubmitted_count:
+        parts = []
+        parts.append(
+            f"You have {overdue_count} overdue assignment{'s' if overdue_count != 1 else ''} "
+            f"and {unsubmitted_count} not yet submitted.\n"
+        )
+        parts.append(f"Overdue ({overdue_count}):\n{_list_names(overdue_items)}")
+        parts.append(f"\nNot yet submitted ({unsubmitted_count}):\n{_list_names(upcoming_items)}")
+        text = "\n".join(parts)
+    elif overdue_count:
         text = (
             f"You have {overdue_count} overdue assignment{'s' if overdue_count != 1 else ''} "
-            f"and {unsubmitted_count} not yet submitted."
+            f"that still need to be submitted.\n\n{_list_names(overdue_items)}"
         )
-    elif overdue_count:
-        text = f"You have {overdue_count} overdue assignment{'s' if overdue_count != 1 else ''} that still need to be submitted."
     else:
-        text = f"You have {unsubmitted_count} assignment{'s' if unsubmitted_count != 1 else ''} not yet submitted."
+        text = (
+            f"You have {unsubmitted_count} assignment{'s' if unsubmitted_count != 1 else ''} not yet submitted.\n\n"
+            f"{_list_names(upcoming_items)}"
+        )
 
     result = RouterResponse(text=text, components=components)
     _cache_set(cache_key, result, "due_dates")
@@ -442,9 +461,16 @@ def search_index(
 
 
 def handle_module_content(lti_session, grade_level: int | None) -> RouterResponse:
-    """Fetch course modules. Shows a course picker if no launch course is set."""
+    """Fetch course modules grouped by term.
+
+    Groups all modules by term label (handles English 'Term N' and
+    Afrikaans 'Kwartaal N'). Each term becomes one card whose items are
+    the individual week-modules, each linking directly to the Canvas
+    modules page anchored to that module.
+    """
     from .canvas import CanvasClient
     from .config import settings
+    from .student_context import _extract_term
     import re
 
     course_id = str(lti_session.course_id or "")
@@ -454,11 +480,10 @@ def handle_module_content(lti_session, grade_level: int | None) -> RouterRespons
     if not re.match(r"^\d+$", course_id):
         picker = _course_picker(
             lti_session,
-            "Which course would you like to browse? Tap one below 👇",
+            "Which course would you like to browse? Tap one below.",
         )
         if picker is not None:
             return picker
-        # _course_picker returned None → single course patched onto session
         course_id = str(lti_session.course_id or "")
 
     cache_key = _cache_key(user_id, "module_content", course_id)
@@ -468,30 +493,42 @@ def handle_module_content(lti_session, grade_level: int | None) -> RouterRespons
         resp.from_cache = True  # type: ignore[union-attr]
         return resp  # type: ignore[return-value]
 
-    # Phase-aware item limit: Foundation Phase sees fewer items per module
-    max_items = 4 if (grade_level is not None and grade_level <= 3) else 8
+    max_visible = 5 if (grade_level is not None and grade_level <= 3) else 12
 
     components: list[dict] = []
     try:
         with CanvasClient(settings.canvas_base_url, settings.canvas_api_token) as c:
-            modules = c.list_modules(int(course_id))[:10]
+            modules = c.list_modules(int(course_id))   # all modules, no slice
+
+            # Group modules by term — preserves insertion order (Term 1 first)
+            term_order: list[str] = []
+            term_groups: dict[str, list] = {}
             for mod in modules:
-                try:
-                    raw_items = c.list_module_items(int(course_id), mod["id"])
-                except Exception:
-                    raw_items = []
+                term = _extract_term(mod.get("name", "")) or "General"
+                if term not in term_groups:
+                    term_groups[term] = []
+                    term_order.append(term)
+                term_groups[term].append(mod)
+
+            base = settings.canvas_base_url.rstrip("/")
+            for term_label in term_order:
+                term_mods = term_groups[term_label]
                 items = [
-                    {"title": it.get("title", ""), "type": it.get("type", ""), "url": it.get("html_url", "")}
-                    for it in raw_items
-                    if it.get("html_url")
+                    {
+                        "title": mod.get("name", ""),
+                        "type": "ExternalUrl",
+                        "url": f"{base}/courses/{course_id}/modules#{mod['id']}",
+                    }
+                    for mod in term_mods
                 ]
                 components.append({
                     "type": "module_section",
-                    "module_name": mod.get("name", "Module"),
-                    "module_id": str(mod.get("id", "")),
+                    "module_name": term_label,
+                    "module_id": term_label,
                     "items": items,
-                    "max_visible": max_items,  # frontend respects this for grade-level density
+                    "max_visible": max_visible,
                 })
+
     except Exception as exc:
         log.warning("handle_module_content error: %s", exc)
         return RouterResponse(text="I couldn't load the course content right now. Please try again.")
@@ -499,9 +536,14 @@ def handle_module_content(lti_session, grade_level: int | None) -> RouterRespons
     if not components:
         text = "I couldn't find any modules in this course yet."
     elif grade_level is not None and grade_level <= 3:
-        text = "Here's where to find your lessons! 📁"
+        text = "Here's where to find your lessons!"
     else:
-        text = f"Here are the {len(components)} module{'s' if len(components) != 1 else ''} in your course."
+        term_count = len(components)
+        text = (
+            f"Here's your course content organised by term — "
+            f"{term_count} term{'s' if term_count != 1 else ''} available. "
+            "Tap any week to open it in Canvas."
+        )
 
     result = RouterResponse(text=text, components=components)
     _cache_set(cache_key, result, "module_content")

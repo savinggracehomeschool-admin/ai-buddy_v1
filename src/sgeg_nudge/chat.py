@@ -124,10 +124,8 @@ def get_alerts(session: str = Query(...)) -> dict:
 
     missing = []
     for comp in resp.components:
-        if comp.get("type") == "assignment_list":
-            for item in comp.get("items", []):
-                if item.get("status") == "overdue":
-                    missing.append(item)
+        if comp.get("type") == "assignment_card" and comp.get("status") == "overdue":
+            missing.append(comp)
 
     return {"count": len(missing), "missing": missing[:5]}
 
