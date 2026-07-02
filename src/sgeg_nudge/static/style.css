@@ -283,8 +283,10 @@ body {
   box-shadow: 0 1px 4px rgba(10,34,64,0.06);
 }
 .asgn-card:hover { box-shadow: 0 2px 8px rgba(10,34,64,.08); }
-.asgn-card.asgn-overdue  { border-left: 3.5px solid #EF4444; }
-.asgn-card.asgn-upcoming { border-left: 3.5px solid #F59E0B; }
+.asgn-card.asgn-overdue   { border-left: 3.5px solid #EF4444; }
+.asgn-card.asgn-upcoming  { border-left: 3.5px solid #EF4444; }
+.asgn-card.asgn-floating  { border-left: 3.5px solid #F59E0B; }
+.asgn-card.asgn-submitted { border-left: 3.5px solid #22C55E; }
 .asgn-top {
   display: flex;
   align-items: flex-start;
@@ -302,8 +304,9 @@ body {
   margin-bottom: 8px;
   margin-left: 23px;
 }
-.asgn-status-label { font-size: 0.72rem; font-weight: 600; color: #B45309; }
-.asgn-card.asgn-overdue .asgn-status-label { color: #B91C1C; }
+.asgn-status-label { font-size: 0.72rem; font-weight: 600; color: #B91C1C; }
+.asgn-card.asgn-floating  .asgn-status-label { color: #B45309; }
+.asgn-card.asgn-submitted .asgn-status-label { color: #15803D; }
 .asgn-due { font-size: 0.72rem; color: var(--text-secondary); }
 .asgn-pts { font-size: 0.72rem; color: var(--text-secondary); }
 .asgn-open {

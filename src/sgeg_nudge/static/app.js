@@ -337,8 +337,8 @@
 
   // ── Single assignment card ─────────────────────────────────────────────────
   function buildAssignmentCard(c) {
-    const STATUS_ICON  = { overdue: ICONS.warning, upcoming: ICONS.clock, submitted: ICONS.check };
-    const STATUS_LABEL = { overdue: "Overdue", upcoming: "Not yet submitted", submitted: "Submitted" };
+    const STATUS_ICON  = { overdue: ICONS.warning, upcoming: ICONS.warning, floating: ICONS.clock, submitted: ICONS.check };
+    const STATUS_LABEL = { overdue: "Overdue", upcoming: "Not yet submitted", floating: "Open — no due date", submitted: "Submitted" };
     const icon  = STATUS_ICON[c.status]  || ICONS.doc;
     const label = STATUS_LABEL[c.status] || "";
     const pts   = c.points_possible ? `${c.points_possible} pts` : "";

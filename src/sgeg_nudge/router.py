@@ -335,7 +335,12 @@ def handle_due_dates(lti_session, grade_level: int | None) -> RouterResponse:
                             continue
 
                         aid = a.get("assignment_id") or a.get("id")
-                        our_status = "overdue" if status == "missing" else "upcoming"
+                        if status == "missing":
+                            our_status = "overdue"
+                        elif status == "floating" or not a.get("due_at"):
+                            our_status = "floating"
+                        else:
+                            our_status = "upcoming"
                         items.append({
                             "name": a.get("title", "Assignment"),
                             "due_friendly": _friendly(a.get("due_at")),
@@ -353,51 +358,35 @@ def handle_due_dates(lti_session, grade_level: int | None) -> RouterResponse:
     seen: set[str] = set()
     unique = [i for i in items if not (i["name"] in seen or seen.add(i["name"]))]  # type: ignore[func-returns-value]
 
-    overdue_count     = sum(1 for i in unique if i["status"] == "overdue")
-    unsubmitted_count = sum(1 for i in unique if i["status"] == "upcoming")
+    overdue_count   = sum(1 for i in unique if i["status"] == "overdue")
+    upcoming_count  = sum(1 for i in unique if i["status"] == "upcoming")
+    floating_count  = sum(1 for i in unique if i["status"] == "floating")
+    unsubmitted_count = upcoming_count + floating_count
     total = len(unique)
 
-    # One card per assignment — overdue first, then upcoming
-    overdue_items   = [i for i in unique if i["status"] == "overdue"]
-    upcoming_items  = [i for i in unique if i["status"] == "upcoming"]
-    ordered = overdue_items + upcoming_items
+    # Cards ordered: overdue → upcoming (has due date) → floating (no due date)
+    overdue_items  = [i for i in unique if i["status"] == "overdue"]
+    upcoming_items = [i for i in unique if i["status"] == "upcoming"]
+    floating_items = [i for i in unique if i["status"] == "floating"]
+    ordered = overdue_items + upcoming_items + floating_items
     components = [
         {"type": "assignment_card", **item}
         for item in ordered[:50]
     ]
-
-    def _list_names(items_list: list[dict], limit: int = 25) -> str:
-        lines = []
-        for i in items_list[:limit]:
-            due = f" — due {i['due_friendly']}" if i.get("due_friendly") and i["due_friendly"] != "no due date" else ""
-            lines.append(f"• {i['name']}{due}")
-        if len(items_list) > limit:
-            lines.append(f"  …and {len(items_list) - limit} more")
-        return "\n".join(lines)
 
     if not unique:
         text = "All your assignments are submitted — nothing outstanding right now."
     elif grade_level is not None and grade_level <= 3:
         text = f"You have {total} thing{'s' if total != 1 else ''} to do!"
     elif overdue_count and unsubmitted_count:
-        parts = []
-        parts.append(
+        text = (
             f"You have {overdue_count} overdue assignment{'s' if overdue_count != 1 else ''} "
-            f"and {unsubmitted_count} not yet submitted.\n"
+            f"and {unsubmitted_count} not yet submitted. Tap any card to open it in Canvas."
         )
-        parts.append(f"Overdue ({overdue_count}):\n{_list_names(overdue_items)}")
-        parts.append(f"\nNot yet submitted ({unsubmitted_count}):\n{_list_names(upcoming_items)}")
-        text = "\n".join(parts)
     elif overdue_count:
-        text = (
-            f"You have {overdue_count} overdue assignment{'s' if overdue_count != 1 else ''} "
-            f"that still need to be submitted.\n\n{_list_names(overdue_items)}"
-        )
+        text = f"You have {overdue_count} overdue assignment{'s' if overdue_count != 1 else ''} — tap a card to open it in Canvas."
     else:
-        text = (
-            f"You have {unsubmitted_count} assignment{'s' if unsubmitted_count != 1 else ''} not yet submitted.\n\n"
-            f"{_list_names(upcoming_items)}"
-        )
+        text = f"You have {unsubmitted_count} assignment{'s' if unsubmitted_count != 1 else ''} not yet submitted. Tap any card to open it in Canvas."
 
     result = RouterResponse(text=text, components=components)
     _cache_set(cache_key, result, "due_dates")
