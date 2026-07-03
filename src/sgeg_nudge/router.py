@@ -73,12 +73,12 @@ def _cache_key(user_id: str, intent: Intent, course_id: str | None) -> str:
 
 _CLASSIFY_PROMPT = """\
 Classify this student message into exactly one of these labels:
-grades             - asking about marks, scores, or academic performance
-due_dates          - asking about upcoming tasks, assignments, what is due, homework
-module_content     - asking where to find a lesson, video, worksheet, or course content
-curriculum_redirect - asking for an explanation of a curriculum topic (what is X, explain X, how does X work, define X)
-escalation         - student needs a human: upset, distressed, requests a teacher, or has a technical problem (can't submit, can't log in, something is broken)
-other              - general chat, greetings, anything not in the above
+grades              - asking about marks, scores, or academic performance
+due_dates           - asking about upcoming tasks, assignments, what is due, homework
+module_content      - asking where to find a lesson, video, worksheet, or course content
+curriculum_redirect - asking for an explanation or definition of a curriculum topic (e.g. "explain photosynthesis", "what is a hypothesis", "how does X work", "define X")
+escalation          - reporting a real problem or error: missing content that should be there, can't submit an assignment, Canvas error, something is broken, content is wrong or not loading
+other               - general chat, greetings, or anything not in the above
 
 Reply with ONLY the label, nothing else. One word.
 
@@ -541,32 +541,13 @@ def handle_module_content(lti_session, grade_level: int | None) -> RouterRespons
 
 
 def handle_curriculum_redirect(message: str, lti_session, grade_level: int | None) -> RouterResponse:
-    """Curriculum topic question handler.
-
-    Instead of refusing or answering from general knowledge, search the student's
-    Canvas courses for content on the topic. If found, show content cards so the
-    student can go read/watch the actual lesson. If not found, invite them to flag
-    it to the curriculum team via 'Talk to a teacher'.
-    """
-    # Search the Canvas content index for this topic
-    indexed = search_index(message, lti_session, grade_level)
-    if indexed is not None and indexed.components:
-        indexed.text = (
-            "I'm your Canvas guide — I can't explain topics for you, but I found content "
-            "on that in your course! Tap a card below to open the lesson."
-        )
-        indexed.intent = "curriculum_redirect"
-        indexed.routed_by = "router_index"
-        return indexed
-
-    # Nothing found in Canvas — suggest curriculum team
+    """Curriculum topic question — out of scope, clean one-liner redirect."""
     return RouterResponse(
         text=(
-            "I'm here to help you navigate Canvas, not to explain curriculum topics — "
-            "that's what your lessons and teachers are for! "
-            "I searched your current courses and couldn't find content on that topic. "
-            "If you think a lesson is missing, tap **Talk to a teacher** and the "
-            "curriculum team will check it for you."
+            "That's a curriculum question — your course content and teacher are the "
+            "best place for that! I'm here to help you find things in Canvas: your "
+            "grades, assignments, and lessons. Is there something specific in your "
+            "course you'd like me to find?"
         ),
         intent="curriculum_redirect",
         routed_by="router_fast",
