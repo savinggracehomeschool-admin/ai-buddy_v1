@@ -198,6 +198,7 @@ class LTISession(Base):
 
     session_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(200), index=True)
+    sis_user_id: Mapped[Optional[str]] = mapped_column(String(200))  # Canvas SIS ID (person_sourcedid)
     course_id: Mapped[Optional[str]] = mapped_column(String(200))
     user_name: Mapped[str] = mapped_column(String(300))
     user_email: Mapped[Optional[str]] = mapped_column(String(300))
@@ -381,7 +382,9 @@ class ChatTicket(Base):
 
     # Student identity
     user_id: Mapped[str] = mapped_column(String(200), index=True)
+    sis_user_id: Mapped[Optional[str]] = mapped_column(String(200))  # Canvas SIS ID
     user_name: Mapped[str] = mapped_column(String(300))
+    user_email: Mapped[Optional[str]] = mapped_column(String(300))
     grade_level: Mapped[Optional[int]] = mapped_column(Integer)
     course_id: Mapped[Optional[str]] = mapped_column(String(200))
     course_name: Mapped[Optional[str]] = mapped_column(String(500))

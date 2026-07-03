@@ -252,6 +252,7 @@ def _create_lti_session(claims: dict, platform_id: str) -> str:
     """
     context    = claims.get("https://purl.imsglobal.org/spec/lti/claim/context", {}) or {}
     custom     = claims.get("https://purl.imsglobal.org/spec/lti/claim/custom", {}) or {}
+    lis        = claims.get("https://purl.imsglobal.org/spec/lti/claim/lis", {}) or {}
     roles_list = claims.get("https://purl.imsglobal.org/spec/lti/claim/roles", [])
 
     # Canvas LTI 1.3 `sub` is an opaque UUID — get the real numeric user ID from
@@ -295,6 +296,7 @@ def _create_lti_session(claims: dict, platform_id: str) -> str:
         row = LTISession(
             session_id=session_id,
             user_id=canvas_user_id,
+            sis_user_id=lis.get("person_sourcedid") or custom.get("canvas_sis_user_id") or None,
             course_id=course_id,
             user_name=user_name,
             user_email=claims.get("email"),

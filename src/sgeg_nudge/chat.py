@@ -172,10 +172,7 @@ def send_message(
         with get_session() as db:
             rows = (
                 db.query(ChatMessage)
-                .filter(
-                    ChatMessage.user_id == lti.user_id,
-                    ChatMessage.course_id == lti.course_id,
-                )
+                .filter(ChatMessage.user_id == lti.user_id)
                 .order_by(ChatMessage.created_at.desc())
                 .limit(_MAX_HISTORY_TURNS * 2)
                 .all()
@@ -247,10 +244,7 @@ def send_message(
             # Build transcript of last 10 turns for the ticket
             recent = (
                 db.query(ChatMessage)
-                .filter(
-                    ChatMessage.user_id == lti.user_id,
-                    ChatMessage.course_id == lti.course_id,
-                )
+                .filter(ChatMessage.user_id == lti.user_id)
                 .order_by(ChatMessage.created_at.desc())
                 .limit(20)
                 .all()
@@ -297,8 +291,8 @@ def send_message(
     if reply.escalated and reply.escalation_reason == "technical":
         try:
             ticket_ref = _submit_ticket_to_external(
-                email=lti.user_id,
-                name=lti.user_name or lti.user_id,
+                email=lti.user_email or lti.user_id,
+                name=lti.user_name or "Student",
                 course=lti.course_title,
                 subject="Technical support request",
                 description=body.message[:500],
@@ -332,19 +326,16 @@ def chat_history(
     session: str = Query(...),
     limit: int = Query(default=60, le=200),
 ) -> list[HistoryItem]:
-    """Return full conversation history for this student+course across all sessions.
+    """Return unified conversation history for this student across all courses.
 
-    Queries by (user_id, course_id) so history persists across LTI relaunches —
-    a student picking up where they left off sees their full prior conversation.
+    Queries by user_id only — one chat thread per student regardless of which
+    Canvas course they launched AI Buddy from.
     """
     lti = _require_session(session)
     with get_session() as db:
         rows = (
             db.query(ChatMessage)
-            .filter(
-                ChatMessage.user_id == lti.user_id,
-                ChatMessage.course_id == lti.course_id,
-            )
+            .filter(ChatMessage.user_id == lti.user_id)
             .order_by(ChatMessage.created_at.desc())
             .limit(limit)
             .all()
@@ -381,7 +372,7 @@ def manual_escalate(
         # Pull recent transcript
         recent = (
             db.query(ChatMessage)
-            .filter(ChatMessage.user_id == lti.user_id, ChatMessage.course_id == lti.course_id)
+            .filter(ChatMessage.user_id == lti.user_id)
             .order_by(ChatMessage.created_at.desc())
             .limit(20).all()
         )
@@ -392,7 +383,9 @@ def manual_escalate(
         ]
         db.add(ChatTicket(
             user_id=lti.user_id,
+            sis_user_id=getattr(lti, "sis_user_id", None),
             user_name=lti.user_name,
+            user_email=lti.user_email,
             grade_level=lti.grade_level,
             course_id=lti.course_id,
             course_name=lti.course_title,
@@ -419,8 +412,10 @@ def manual_escalate(
 
     # Forward to external ticketing system (mock by default; swap TICKET_API_URL for real)
     ticket_ref = _submit_ticket_to_external(
-        email=lti.user_id,
-        name=lti.user_name or lti.user_id,
+        email=lti.user_email or lti.user_id,
+        name=lti.user_name or "Student",
+        sis_user_id=getattr(lti, "sis_user_id", None),
+        canvas_user_id=lti.user_id,
         course=lti.course_title,
         subject=body.subject or "Support request",
         description=body.message or "",
@@ -482,6 +477,8 @@ def _submit_ticket_to_external(
     *,
     email: str,
     name: str,
+    sis_user_id: str | None = None,
+    canvas_user_id: str | None = None,
     course: str | None,
     subject: str,
     description: str,
@@ -506,6 +503,8 @@ def _submit_ticket_to_external(
     payload_bytes = json.dumps({
         "email": email,
         "name": name,
+        "sis_user_id": sis_user_id,
+        "canvas_user_id": canvas_user_id,
         "course": course,
         "subject": subject,
         "description": description,
