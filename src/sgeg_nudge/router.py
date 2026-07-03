@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 
 # ── Intent labels ─────────────────────────────────────────────────────────────
 
-Intent = Literal["grades", "due_dates", "module_content", "escalation", "other"]
+Intent = Literal["grades", "due_dates", "module_content", "curriculum_redirect", "escalation", "other"]
 
 # UI quick-action chips send these exact strings — skip classifier entirely
 _EXACT_MATCH: dict[str, Intent] = {
@@ -73,11 +73,12 @@ def _cache_key(user_id: str, intent: Intent, course_id: str | None) -> str:
 
 _CLASSIFY_PROMPT = """\
 Classify this student message into exactly one of these labels:
-grades        - asking about marks, scores, or academic performance
-due_dates     - asking about upcoming tasks, assignments, what is due, homework
-module_content - asking where to find a lesson, video, worksheet, or course content
-escalation    - student needs a human: upset, distressed, or requests a teacher
-other         - anything else (general chat, advice, explanation requests)
+grades             - asking about marks, scores, or academic performance
+due_dates          - asking about upcoming tasks, assignments, what is due, homework
+module_content     - asking where to find a lesson, video, worksheet, or course content
+curriculum_redirect - asking for an explanation of a curriculum topic (what is X, explain X, how does X work, define X)
+escalation         - student needs a human: upset, distressed, requests a teacher, or has a technical problem (can't submit, can't log in, something is broken)
+other              - general chat, greetings, anything not in the above
 
 Reply with ONLY the label, nothing else. One word.
 
@@ -105,7 +106,7 @@ def classify_intent(message: str, anthropic_api_key: str) -> Intent:
             }],
         )
         label = resp.content[0].text.strip().lower()
-        valid: set[Intent] = {"grades", "due_dates", "module_content", "escalation", "other"}
+        valid: set[Intent] = {"grades", "due_dates", "module_content", "curriculum_redirect", "escalation", "other"}
         return label if label in valid else "other"  # type: ignore[return-value]
     except Exception as exc:
         log.warning("classify_intent failed (%s) — routing to full Claude path", exc)
@@ -539,6 +540,39 @@ def handle_module_content(lti_session, grade_level: int | None) -> RouterRespons
     return result
 
 
+def handle_curriculum_redirect(message: str, lti_session, grade_level: int | None) -> RouterResponse:
+    """Curriculum topic question handler.
+
+    Instead of refusing or answering from general knowledge, search the student's
+    Canvas courses for content on the topic. If found, show content cards so the
+    student can go read/watch the actual lesson. If not found, invite them to flag
+    it to the curriculum team via 'Talk to a teacher'.
+    """
+    # Search the Canvas content index for this topic
+    indexed = search_index(message, lti_session, grade_level)
+    if indexed is not None and indexed.components:
+        indexed.text = (
+            "I'm your Canvas guide — I can't explain topics for you, but I found content "
+            "on that in your course! Tap a card below to open the lesson."
+        )
+        indexed.intent = "curriculum_redirect"
+        indexed.routed_by = "router_index"
+        return indexed
+
+    # Nothing found in Canvas — suggest curriculum team
+    return RouterResponse(
+        text=(
+            "I'm here to help you navigate Canvas, not to explain curriculum topics — "
+            "that's what your lessons and teachers are for! "
+            "I searched your current courses and couldn't find content on that topic. "
+            "If you think a lesson is missing, tap **Talk to a teacher** and the "
+            "curriculum team will check it for you."
+        ),
+        intent="curriculum_redirect",
+        routed_by="router_fast",
+    )
+
+
 # ── Public router entry point ─────────────────────────────────────────────────
 
 def route(
@@ -576,9 +610,15 @@ def route(
             return indexed
         r = handle_module_content(lti_session, grade_level)
         r.intent = "module_content"; return r
+    if intent == "curriculum_redirect":
+        r = handle_curriculum_redirect(message, lti_session, grade_level)
+        r.intent = "curriculum_redirect"; return r
     if intent == "escalation":
         return RouterResponse(
-            text="It sounds like you need some extra help. Let me connect you with your teacher right away.",
+            text=(
+                "It sounds like you're having a problem — let me get a teacher to help you. "
+                "Tap **Talk to a teacher** below and they'll follow up with you shortly."
+            ),
             escalated=True,
             escalation_reason="other",
             intent="escalation",
