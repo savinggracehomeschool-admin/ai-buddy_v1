@@ -631,10 +631,11 @@
     chatIntro?.remove();
     quickActions.style.display = "none";
     try {
+      const lastPage = document.referrer || window.parent?.location?.href || window.location.href;
       const res  = await fetch(`/api/chat/escalate?session=${SESSION}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "other", message: msg }),
+        body: JSON.stringify({ reason: "other", message: msg, last_page: lastPage }),
       });
       const data = await res.json();
       appendBubble("assistant", data.message || "Your teacher has been notified.");

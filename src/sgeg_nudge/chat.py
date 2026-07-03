@@ -355,8 +355,9 @@ def chat_history(
 class EscalateRequest(BaseModel):
     reason: str = Field(default="other", max_length=64)
     message: str = Field(default="", max_length=500)
-    subject: str = Field(default="", max_length=120)    # Phase 5: richer escalation
+    subject: str = Field(default="", max_length=120)
     urgency: str = Field(default="normal", max_length=16)  # 'normal' | 'urgent'
+    last_page: str = Field(default="", max_length=2000)   # Canvas URL the student was on
 
 
 @router.post("/api/chat/escalate")
@@ -393,7 +394,7 @@ def manual_escalate(
             category=_escalation_category(body.reason),
             urgency=body.urgency,
             subject=body.subject or None,
-            description=body.message or None,
+            description=(body.message or "") + (f"\n\nCanvas page: {body.last_page}" if body.last_page else ""),
             transcript=json.dumps(transcript_data),
             status="new",
             created_at=now,
@@ -420,6 +421,7 @@ def manual_escalate(
         subject=body.subject or "Support request",
         description=body.message or "",
         urgency=body.urgency,
+        last_page=body.last_page or None,
     )
 
     msg = (
@@ -483,6 +485,7 @@ def _submit_ticket_to_external(
     subject: str,
     description: str,
     urgency: str = "normal",
+    last_page: str | None = None,
 ) -> str:
     """Submit a ticket to the external ticketing API.
 
@@ -509,6 +512,7 @@ def _submit_ticket_to_external(
         "subject": subject,
         "description": description,
         "urgency": urgency,
+        "last_page": last_page,
     }).encode()
 
     headers = {"Content-Type": "application/json"}
