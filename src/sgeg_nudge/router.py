@@ -75,10 +75,13 @@ _CLASSIFY_PROMPT = """\
 Classify this student message into exactly one of these labels:
 grades              - asking about marks, scores, or academic performance
 due_dates           - asking about upcoming tasks, assignments, what is due, homework
-module_content      - asking where to find a lesson, video, worksheet, or course content
-curriculum_redirect - asking for an explanation or definition of a curriculum topic (e.g. "explain photosynthesis", "what is a hypothesis", "how does X work", "define X")
-escalation          - reporting a real problem or error: missing content that should be there, can't submit an assignment, Canvas error, something is broken, content is wrong or not loading
-other               - general chat, greetings, or anything not in the above
+module_content      - asking Canvas to show or find content (e.g. "show me modules", "where is my lesson", "find the video")
+curriculum_redirect - asking for an explanation or definition of a subject topic (e.g. "explain photosynthesis", "what is a hypothesis", "how does X work")
+escalation          - reporting a problem or failure: "I can't find", "I can't submit", "it's not there", "it's broken", "I'm getting an error", content is missing or not loading
+other               - general chat, greetings, or anything not above
+
+IMPORTANT: "I can't find X" or "X is missing" = escalation, NOT module_content.
+Only use module_content when the student is asking you to search or show them something.
 
 Reply with ONLY the label, nothing else. One word.
 
@@ -417,8 +420,12 @@ def search_index(
     if not enrolled_ids:
         return None
 
-    with _get_session() as db:
-        results = search_content(db, query, enrolled_ids, grade_level=grade_level, limit=12)
+    try:
+        with _get_session() as db:
+            results = search_content(db, query, enrolled_ids, grade_level=grade_level, limit=12)
+    except Exception as exc:
+        log.warning("search_index db error: %s", exc)
+        return None
 
     if not results:
         return None

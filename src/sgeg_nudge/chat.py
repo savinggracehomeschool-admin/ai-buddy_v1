@@ -147,13 +147,17 @@ def send_message(
     intent    = "other"
     routed_by = "full_claude"
 
-    routed = _route(
-        message=body.message,
-        lti_session=lti,
-        grade_level=lti.grade_level,
-        anthropic_api_key=settings.anthropic_api_key,
-        shadow_mode=False,
-    )
+    try:
+        routed = _route(
+            message=body.message,
+            lti_session=lti,
+            grade_level=lti.grade_level,
+            anthropic_api_key=settings.anthropic_api_key,
+            shadow_mode=False,
+        )
+    except Exception as exc:
+        logger.exception("Router error — falling through to Claude: %s", exc)
+        routed = None
 
     if routed is not None:
         intent    = routed.intent
