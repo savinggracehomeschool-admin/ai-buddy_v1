@@ -554,7 +554,7 @@
 
         if (data.escalated) {
           const notice = make("div", "escalation-notice");
-          notice.textContent = "Your teacher has been notified and will follow up with you.";
+          notice.textContent = "A support ticket has been logged — the SGEG support team will follow up with you.";
           chatWindow.appendChild(notice);
         }
       }
@@ -638,7 +638,7 @@
         body: JSON.stringify({ reason: "other", message: msg, last_page: lastPage }),
       });
       const data = await res.json();
-      appendBubble("assistant", data.message || "Your teacher has been notified.");
+      appendBubble("assistant", data.message || "Your request has been logged with the SGEG support team.");
     } catch {
       appendBubble("assistant", "Couldn't send that right now. Please try again.");
     }

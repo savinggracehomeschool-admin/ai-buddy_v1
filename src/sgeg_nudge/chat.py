@@ -425,10 +425,10 @@ def manual_escalate(
     )
 
     msg = (
-        f"Your teacher has been notified urgently and will follow up as soon as possible. "
+        f"Your request has been logged urgently — the SGEG support team will follow up as soon as possible. "
         f"Reference: {ticket_ref}"
         if body.urgency == "urgent"
-        else f"A teacher has been notified and will follow up with you shortly. "
+        else f"Your request has been logged — the SGEG support team will follow up with you shortly. "
              f"Reference: {ticket_ref}"
     )
     return {"status": "escalated", "ticket_ref": ticket_ref, "message": msg}

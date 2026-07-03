@@ -197,7 +197,7 @@ def handle_grades(lti_session, grade_level: int | None) -> RouterResponse:
         )
 
     if not components:
-        text = "I couldn't find any active grades yet — your teacher may still be adding marks."
+        text = "I couldn't find any active grades yet — marks may still be loading."
     elif grade_level is not None and grade_level <= 3:
         # Foundation Phase — very short
         text = "Here are your grades! 😊"
@@ -273,7 +273,7 @@ def _course_picker(lti_session, prompt: str) -> RouterResponse:
         courses = [{"id": i, "name": f"Course {i}", "grade_level": None} for i in ids]
 
     if not courses:
-        return RouterResponse(text="I couldn't find any courses for your account. Please contact your teacher.")
+        return RouterResponse(text="I couldn't find any courses for your account. Please contact the SGEG support team.")
 
     # If a course is already set on the session, use it silently — never ask again
     if lti_session.course_id and str(lti_session.course_id) in [c["id"] for c in courses]:
@@ -544,10 +544,9 @@ def handle_curriculum_redirect(message: str, lti_session, grade_level: int | Non
     """Curriculum topic question — out of scope, clean one-liner redirect."""
     return RouterResponse(
         text=(
-            "That's a curriculum question — your course content and teacher are the "
-            "best place for that! I'm here to help you find things in Canvas: your "
-            "grades, assignments, and lessons. Is there something specific in your "
-            "course you'd like me to find?"
+            "That's a curriculum question — your course content is the best place for that! "
+            "I'm here to help you navigate Canvas: check your grades, find assignments, "
+            "and locate your lessons. Is there something specific in your course you'd like me to find?"
         ),
         intent="curriculum_redirect",
         routed_by="router_fast",
@@ -597,8 +596,8 @@ def route(
     if intent == "escalation":
         return RouterResponse(
             text=(
-                "It sounds like you're having a problem — let me get a teacher to help you. "
-                "Tap **Talk to a teacher** below and they'll follow up with you shortly."
+                "It sounds like you're having a problem — the SGEG support team can help. "
+                "Tap **Get Support** below and they'll follow up with you shortly."
             ),
             escalated=True,
             escalation_reason="other",
